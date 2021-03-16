@@ -1,9 +1,13 @@
-use std::cmp::max;
-use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
+use std::{
+    cmp::max,
+    collections::{HashMap, HashSet},
+    hash::Hash,
+};
 
-use bevy::input::gamepad::{GamepadAxisType, GamepadEvent, GamepadEventType};
-use bevy::prelude::*;
+use bevy::{
+    input::gamepad::{GamepadAxisType, GamepadEvent, GamepadEventType},
+    prelude::*,
+};
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Binding {
@@ -227,7 +231,7 @@ where
         self
     }
 
-    pub fn bind<S: Into<T>, B: Into<Binding>>(&mut self, key: S, binding: B) -> &mut Self {
+    pub fn bind<K: Into<T>, B: Into<Binding>>(&mut self, key: K, binding: B) -> &mut Self {
         let key = key.into();
         if !self.actions.contains_key(&key) {
             self.add_action(key.clone());
@@ -238,9 +242,9 @@ where
         self
     }
 
-    pub fn bind_with_deadzone<S: Into<T>, B: Into<Binding>>(
+    pub fn bind_with_deadzone<K: Into<T>, B: Into<Binding>>(
         &mut self,
-        key: S,
+        key: K,
         binding: B,
         deadzone: f32,
     ) -> &mut Self {
@@ -256,20 +260,19 @@ where
         self
     }
 
-    pub fn active<S: Into<T>>(&self, key: S) -> bool {
+    pub fn active<K: Into<T>>(&self, key: K) -> bool {
         self.active.contains_key(&key.into())
     }
 
-    pub fn just_active<S: Into<T>>(&self, key: S) -> bool {
+    pub fn just_active<K: Into<T>>(&self, key: K) -> bool {
         self.just_active.contains_key(&key.into())
     }
 
-    #[allow(dead_code)]
-    pub fn just_inactive<S: Into<T>>(&self, key: S) -> bool {
+    pub fn just_inactive<K: Into<T>>(&self, key: K) -> bool {
         self.just_inactive.contains(&key.into())
     }
 
-    pub fn strength<S: Into<T>>(&self, key: S) -> f32 {
+    pub fn strength<K: Into<T>>(&self, key: K) -> f32 {
         if let Some(strength) = self.active.get(&key.into()) {
             *strength
         } else {
@@ -445,6 +448,7 @@ where
         input_map.raw_active.clear();
     }
 }
+
 pub struct ActionPlugin<'a, T>(std::marker::PhantomData<&'a T>);
 
 impl<'a, T> Default for ActionPlugin<'a, T> {
