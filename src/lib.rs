@@ -231,8 +231,8 @@ where
         self
     }
 
-    pub fn bind<K: Into<T>, B: Into<Binding>>(&mut self, key: K, binding: B) -> &mut Self {
-        let key = key.into();
+    pub fn bind<K: Into<T>, B: Into<Binding>>(&mut self, action: K, binding: B) -> &mut Self {
+        let key = action.into();
         if !self.actions.contains_key(&key) {
             self.add_action(key.clone());
         }
