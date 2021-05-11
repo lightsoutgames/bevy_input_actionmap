@@ -411,6 +411,9 @@ where
                 } else {
                     0
                 };
+                if weight == outer_binding.weight() {
+                    continue;
+                }
                 if weight != 0 {
                     let to_remove = if weight < outer_binding.weight() {
                         (inner_action.clone(), inner_binding.clone(), *inner_strength)
