@@ -205,6 +205,7 @@ pub struct InputMap<T> {
     just_active: HashMap<T, f32>,
     just_inactive: HashSet<T>,
     gamepads: HashSet<Gamepad>,
+    wants_clear: bool,
 }
 
 impl<T> Default for InputMap<T> {
@@ -218,6 +219,7 @@ impl<T> Default for InputMap<T> {
             just_active: HashMap::new(),
             just_inactive: HashSet::new(),
             gamepads: HashSet::new(),
+            wants_clear: false,
         }
     }
 }
@@ -281,6 +283,10 @@ where
     }
 
     pub fn clear(&mut self) {
+        self.wants_clear = true;
+        self.pressed_buttons.clear();
+        self.gamepad_axis.clear();
+        self.raw_active.clear();
         self.active.clear();
         self.just_active.clear();
         self.just_inactive.clear();
@@ -456,6 +462,24 @@ where
         }
         input_map.raw_active.clear();
     }
+
+    fn clear_wants_clear(mut input_map: ResMut<InputMap<T>>, mut input: ResMut<Input<KeyCode>>)
+    where
+        T: 'static,
+    {
+        if input_map.wants_clear {
+            input.update();
+            let mut v = vec![];
+            for i in input.get_pressed().cloned() {
+                v.push(i);
+            }
+            for i in v {
+                input.reset(i);
+            }
+        }
+
+        input_map.wants_clear = false;
+    }
 }
 
 pub struct ActionPlugin<'a, T>(std::marker::PhantomData<&'a T>);
@@ -487,6 +511,10 @@ where
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 InputMap::<T>::resolve_conflicts.system(),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                InputMap::<T>::clear_wants_clear.system(),
             );
     }
 }
