@@ -280,6 +280,12 @@ where
         }
     }
 
+    pub fn clear(&mut self) {
+        self.active.clear();
+        self.just_active.clear();
+        self.just_inactive.clear();
+    }
+
     fn key_input(input: Res<Input<KeyCode>>, mut input_map: ResMut<InputMap<T>>)
     where
         T: 'static,
