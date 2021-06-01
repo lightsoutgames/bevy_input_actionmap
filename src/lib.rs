@@ -9,7 +9,13 @@ use bevy::{
     prelude::*,
 };
 
+#[cfg(feature = "serialize")]
+pub mod serialize;
+#[cfg(feature = "serialize")]
+pub use serde::{Serialize, Deserialize};
+
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Binding {
     keys: HashSet<KeyCode>,
     gamepad_buttons: HashSet<GamepadButtonType>,
@@ -66,6 +72,7 @@ impl From<Vec<GamepadButtonType>> for Binding {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum GamepadAxisDirection {
     LeftStickXPositive,
     LeftStickXNegative,
@@ -130,6 +137,7 @@ impl Binding {
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Action {
     bindings: Vec<Binding>,
 }
