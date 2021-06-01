@@ -75,6 +75,10 @@ pub enum GamepadAxisDirection {
     RightStickXNegative,
     RightStickYPositive,
     RightStickYNegative,
+    DPadXPositive,
+    DPadXNegative,
+    DPadYPositive,
+    DPadYNegative,
 }
 
 impl From<GamepadAxisDirection> for Binding {
@@ -348,6 +352,16 @@ where
                             (RightStickYPositive, RightStickYNegative)
                         } else {
                             (RightStickYNegative, RightStickYPositive)
+                        }),
+                        GamepadAxisType::DPadX => Some(if positive {
+                            (DPadXPositive, DPadXNegative)
+                        } else {
+                            (DPadXNegative, DPadXPositive)
+                        }),
+                        GamepadAxisType::DPadY => Some(if positive {
+                            (DPadYPositive, DPadYNegative)
+                        } else {
+                            (DPadYNegative, DPadYPositive)
                         }),
                         _ => None,
                     };
