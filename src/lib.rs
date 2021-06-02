@@ -9,8 +9,9 @@ use bevy::{
     prelude::*,
 };
 
+#[cfg(test)]
 #[cfg(feature = "serialize")]
-pub mod serialize;
+mod serialize;
 #[cfg(feature = "serialize")]
 pub use serde::{Serialize, Deserialize};
 
@@ -139,7 +140,8 @@ impl Binding {
 #[derive(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Action {
-    bindings: Vec<Binding>,
+    //add a copy of T here
+    pub bindings: Vec<Binding>, //made pub so i can access it in example will need methods to add and remove or at the very least get &bindings if you want to serialize to be implemented by the user
 }
 
 impl Action {
@@ -205,7 +207,8 @@ impl Action {
 }
 
 pub struct InputMap<T> {
-    actions: HashMap<T, Action>,
+    actions: HashMap<T, Action>,//change this to being a new struct Bindings that does the same thing but frees up the name for Action to be use in none uniqe collections
+                                //could also just leave the a redundent copy of T in actions
     pressed_buttons: HashMap<GamepadButtonType, f32>,
     gamepad_axis: HashMap<GamepadAxisDirection, f32>,
     raw_active: Vec<(T, Binding, f32)>,
@@ -487,6 +490,36 @@ where
         }
 
         input_map.wants_clear = false;
+    }
+    //could we change Actions to contain a copy of T so we pass in a Vec<Action>
+    pub fn add_actions(&mut self, actions : Vec<(T, Vec<Binding>)>){
+        for (action, bindings) in actions {
+            self.add_action(action.clone());
+            for binding in bindings{
+                self.bind(action.clone(), binding);
+            }
+        }
+    }
+
+    pub fn set_actions(&mut self, actions : Vec<(T, Vec<Binding>)>){
+        self.actions.clear();
+        self.add_actions(actions)
+    }
+
+    pub fn get_actions(&self) -> &HashMap<T, Action>{
+        &self.actions
+    }
+
+    pub fn get_mut_actions(&mut self) -> &mut HashMap<T, Action>{
+        &mut self.actions
+    }
+
+    pub fn get_action<K : Into<T>>(&self, key : K) -> Option<&Action>{
+        self.actions.get(&key.into())
+    }
+
+    pub fn get_mut_action<K : Into<T>>(&mut self, key : K) -> Option<&mut Action>{
+        self.actions.get_mut(&key.into())
     }
 }
 
