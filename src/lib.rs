@@ -5,7 +5,10 @@ use std::{
 };
 
 use bevy::{
-    input::gamepad::{GamepadAxisType, GamepadEvent, GamepadEventType},
+    input::{
+        gamepad::{GamepadAxisType, GamepadEvent, GamepadEventType},
+        InputSystem,
+    },
     prelude::*,
 };
 
@@ -296,6 +299,14 @@ where
         self.just_inactive.clear();
     }
 
+    fn clear_just_active_inactive(mut input_map: ResMut<InputMap<T>>)
+    where
+        T: 'static,
+    {
+        input_map.just_active.clear();
+        input_map.just_inactive.clear();
+    }
+
     fn key_input(input: Res<Input<KeyCode>>, mut input_map: ResMut<InputMap<T>>)
     where
         T: 'static,
@@ -413,11 +424,10 @@ where
         input_map.raw_active.append(&mut raw_active);
     }
 
-    fn resolve_conflicts(mut input_map: ResMut<InputMap<T>>)
+    fn resolve_conflicts(mut input_map: ResMut<InputMap<T>>, input: Res<Input<KeyCode>>)
     where
         T: 'static,
     {
-        input_map.just_inactive.clear();
         let mut active_resolve_conflicts = input_map.raw_active.clone();
         for (outer_action, outer_binding, outer_strength) in &input_map.raw_active {
             for (inner_action, inner_binding, inner_strength) in &input_map.raw_active {
@@ -453,11 +463,12 @@ where
         let just_active = active_resolve_conflicts
             .iter()
             .filter(|v| !input_map.active.contains_key(&v.0))
-            .map(|v| (v.0.clone(), v.2))
-            .collect::<Vec<(T, f32)>>();
-        input_map.just_active.clear();
+            .map(|v| (v.0.clone(), v.1.clone(), v.2))
+            .collect::<Vec<(T, Binding, f32)>>();
         for v in just_active {
-            input_map.just_active.insert(v.0, v.1);
+            if v.1.keys.iter().any(|v| input.just_pressed(*v)) {
+                input_map.just_active.insert(v.0, v.2);
+            }
         }
         let active = active_resolve_conflicts
             .iter()
@@ -511,20 +522,46 @@ where
     'a: 'static,
 {
     fn build(&self, app: &mut AppBuilder) {
+        const UPDATE_STATES_LABEL: &str = "UPDATE_STAES";
+        const RESOLVE_CONFLICTS_LABEL: &str = "RESOLVE_CONFLICTS";
         app.init_resource::<InputMap<T>>()
-            .add_system_to_stage(CoreStage::PreUpdate, InputMap::<T>::key_input.system())
-            .add_system_to_stage(CoreStage::PreUpdate, InputMap::<T>::gamepad_state.system())
             .add_system_to_stage(
-                CoreStage::PreUpdate,
-                InputMap::<T>::gamepad_button_input.system(),
+                CoreStage::First,
+                InputMap::<T>::clear_just_active_inactive.system(),
             )
             .add_system_to_stage(
                 CoreStage::PreUpdate,
-                InputMap::<T>::gamepad_axis_input.system(),
+                InputMap::<T>::key_input
+                    .system()
+                    .label(UPDATE_STATES_LABEL)
+                    .after(InputSystem),
             )
             .add_system_to_stage(
                 CoreStage::PreUpdate,
-                InputMap::<T>::resolve_conflicts.system(),
+                InputMap::<T>::gamepad_state
+                    .system()
+                    .label(UPDATE_STATES_LABEL)
+                    .after(InputSystem),
+            )
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                InputMap::<T>::gamepad_button_input
+                    .system()
+                    .after(UPDATE_STATES_LABEL)
+                    .before(RESOLVE_CONFLICTS_LABEL),
+            )
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                InputMap::<T>::gamepad_axis_input
+                    .system()
+                    .after(UPDATE_STATES_LABEL)
+                    .before(RESOLVE_CONFLICTS_LABEL),
+            )
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                InputMap::<T>::resolve_conflicts
+                    .system()
+                    .label(RESOLVE_CONFLICTS_LABEL),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
