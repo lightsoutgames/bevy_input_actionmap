@@ -1,6 +1,7 @@
 use std::{
     cmp::max,
     collections::{HashMap, HashSet},
+    fmt::Debug,
     hash::Hash,
 };
 
@@ -301,7 +302,7 @@ where
 
     fn clear_just_active_inactive(mut input_map: ResMut<InputMap<T>>)
     where
-        T: 'static,
+        T: 'static + Debug,
     {
         input_map.just_active.clear();
         input_map.just_inactive.clear();
@@ -309,7 +310,7 @@ where
 
     fn key_input(input: Res<Input<KeyCode>>, mut input_map: ResMut<InputMap<T>>)
     where
-        T: 'static,
+        T: 'static + Debug,
     {
         let mut raw_active = input_map
             .actions
@@ -323,7 +324,7 @@ where
 
     fn gamepad_state(mut gamepad_events: EventReader<GamepadEvent>, mut input: ResMut<InputMap<T>>)
     where
-        T: 'static,
+        T: 'static + Debug,
     {
         for event in gamepad_events.iter() {
             match &event {
@@ -392,7 +393,7 @@ where
 
     fn gamepad_button_input(mut input_map: ResMut<InputMap<T>>)
     where
-        T: 'static,
+        T: 'static + Debug,
     {
         let mut raw_active = input_map
             .actions
@@ -409,7 +410,7 @@ where
 
     fn gamepad_axis_input(mut input_map: ResMut<InputMap<T>>)
     where
-        T: 'static,
+        T: 'static + Debug,
     {
         let mut raw_active = input_map
             .actions
@@ -426,7 +427,7 @@ where
 
     fn resolve_conflicts(mut input_map: ResMut<InputMap<T>>, input: Res<Input<KeyCode>>)
     where
-        T: 'static,
+        T: 'static + Debug,
     {
         let mut active_resolve_conflicts = input_map.raw_active.clone();
         for (outer_action, outer_binding, outer_strength) in &input_map.raw_active {
@@ -466,7 +467,7 @@ where
             .map(|v| (v.0.clone(), v.1.clone(), v.2))
             .collect::<Vec<(T, Binding, f32)>>();
         for v in just_active {
-            if v.1.keys.iter().any(|v| input.just_pressed(*v)) {
+            if v.1.keys.is_empty() || v.1.keys.iter().any(|v| input.just_pressed(*v)) {
                 input_map.just_active.insert(v.0, v.2);
             }
         }
@@ -490,7 +491,7 @@ where
 
     fn clear_wants_clear(mut input_map: ResMut<InputMap<T>>, mut input: ResMut<Input<KeyCode>>)
     where
-        T: 'static,
+        T: 'static + Debug,
     {
         if input_map.wants_clear {
             input.update();
@@ -518,7 +519,7 @@ impl<'a, T> Default for ActionPlugin<'a, T> {
 impl<'a, T> Plugin for ActionPlugin<'a, T>
 where
     InputMap<T>: Default,
-    T: Hash + Eq + Clone + Send + Sync,
+    T: Hash + Eq + Clone + Send + Sync + Debug,
     'a: 'static,
 {
     fn build(&self, app: &mut AppBuilder) {
