@@ -10,7 +10,7 @@ fn main() {
         .run();
 }
 
-#[derive(Hash, PartialEq, Eq, Clone)]
+#[derive(Hash, PartialEq, Eq, Clone, Debug)]
 enum Action {
     Select,
     SuperSelect,
