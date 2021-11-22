@@ -157,7 +157,7 @@ impl Action {
         let mut bindings = self
             .bindings
             .iter()
-            .filter(|it| it.key_pressed(&input))
+            .filter(|it| it.key_pressed(input))
             .cloned()
             .collect::<Vec<Binding>>();
         bindings.sort_by(|v1, v2| (v1.weight().partial_cmp(&v2.weight()).unwrap()));
@@ -263,8 +263,8 @@ where
         self
     }
 
-	/// Adds a given Binding to the given variant of the application's action type -- should the
-	/// action not already be added, it is added automatically.
+    /// Adds a given Binding to the given variant of the application's action type -- should the
+    /// action not already be added, it is added automatically.
     pub fn bind<K: Into<T>, B: Into<Binding>>(&mut self, action: K, binding: B) -> &mut Self {
         let key = action.into();
         if !self.actions.contains_key(&key) {
@@ -276,8 +276,8 @@ where
         self
     }
 
-	/// Performs a binding as with the [`InputMap::bind`] method, but includes a deadzone for which
-	/// the action much exceed in order to register eg. with analog buttons and axes.
+    /// Performs a binding as with the [`InputMap::bind`] method, but includes a deadzone for which
+    /// the action much exceed in order to register eg. with analog buttons and axes.
     pub fn bind_with_deadzone<K: Into<T>, B: Into<Binding>>(
         &mut self,
         key: K,
@@ -296,22 +296,22 @@ where
         self
     }
 
-	/// Returns whether a given action is currently triggered.
+    /// Returns whether a given action is currently triggered.
     pub fn active<K: Into<T>>(&self, key: K) -> bool {
         self.active.contains_key(&key.into())
     }
 
-	/// Returns whether a given action has just been triggered.
+    /// Returns whether a given action has just been triggered.
     pub fn just_active<K: Into<T>>(&self, key: K) -> bool {
         self.just_active.contains_key(&key.into())
     }
 
-	/// Returns whether a given action has just stopped being triggered.
+    /// Returns whether a given action has just stopped being triggered.
     pub fn just_inactive<K: Into<T>>(&self, key: K) -> bool {
         self.just_inactive.contains(&key.into())
     }
 
-	/// Returns the strength of an active triggered action for use with analog input.
+    /// Returns the strength of an active triggered action for use with analog input.
     pub fn strength<K: Into<T>>(&self, key: K) -> f32 {
         if let Some(strength) = self.active.get(&key.into()) {
             *strength
@@ -320,7 +320,7 @@ where
         }
     }
 
-	/// Clears all triggered actions without changing configured bindings.
+    /// Clears all triggered actions without changing configured bindings.
     pub fn clear(&mut self) {
         self.wants_clear = true;
         self.pressed_buttons.clear();
@@ -331,7 +331,7 @@ where
         self.just_inactive.clear();
     }
 
-	/// System that clears specifically the maps of just active or just inactive actions
+    /// System that clears specifically the maps of just active or just inactive actions
     fn clear_just_active_inactive(mut input_map: ResMut<InputMap<T>>)
     where
         T: 'static + Debug,
@@ -340,7 +340,7 @@ where
         input_map.just_inactive.clear();
     }
 
-	/// System that listens to pressed [`KeyCodes`] to map to the configured actions
+    /// System that listens to pressed [`KeyCodes`] to map to the configured actions
     fn key_input(input: Res<Input<KeyCode>>, mut input_map: ResMut<InputMap<T>>)
     where
         T: 'static + Debug,
@@ -355,7 +355,7 @@ where
         input_map.raw_active.append(&mut raw_active);
     }
 
-	/// System that listens to [`GamepadEvent`]s to write into the raw inputs
+    /// System that listens to [`GamepadEvent`]s to write into the raw inputs
     fn gamepad_state(mut gamepad_events: EventReader<GamepadEvent>, mut input: ResMut<InputMap<T>>)
     where
         T: 'static + Debug,
@@ -414,18 +414,17 @@ where
                     if let Some((direction, opposite)) = direction {
                         if *strength != 0. {
                             input.gamepad_axis.insert(direction, *strength);
-                            input.gamepad_axis.remove(&opposite);
                         } else {
                             input.gamepad_axis.remove(&direction);
-                            input.gamepad_axis.remove(&opposite);
                         }
+                        input.gamepad_axis.remove(&opposite);
                     }
                 }
             }
         }
     }
 
-	/// System that updates the gamepad button inputs in the [`InputMap`]
+    /// System that updates the gamepad button inputs in the [`InputMap`]
     fn gamepad_button_input(mut input_map: ResMut<InputMap<T>>)
     where
         T: 'static + Debug,
@@ -443,7 +442,7 @@ where
         input_map.raw_active.append(&mut raw_active);
     }
 
-	/// System that updates the gamepad axis inputs in the [`InputMap`]
+    /// System that updates the gamepad axis inputs in the [`InputMap`]
     fn gamepad_axis_input(mut input_map: ResMut<InputMap<T>>)
     where
         T: 'static + Debug,
@@ -461,7 +460,7 @@ where
         input_map.raw_active.append(&mut raw_active);
     }
 
-	/// System that prunes conflicting actions by prioritizing that with the higher weight.
+    /// System that prunes conflicting actions by prioritizing that with the higher weight.
     fn resolve_conflicts(mut input_map: ResMut<InputMap<T>>, input: Res<Input<KeyCode>>)
     where
         T: 'static + Debug,
@@ -526,8 +525,8 @@ where
         input_map.raw_active.clear();
     }
 
-	/// System that assists in clearing the input by modifying the actual [`Input`] resource interal
-	/// to Bevy
+    /// System that assists in clearing the input by modifying the actual [`Input`] resource interal
+    /// to Bevy
     fn clear_wants_clear(mut input_map: ResMut<InputMap<T>>, mut input: ResMut<Input<KeyCode>>)
     where
         T: 'static + Debug,
@@ -565,8 +564,8 @@ where
         const UPDATE_STATES_LABEL: &str = "UPDATE_STAES";
         const RESOLVE_CONFLICTS_LABEL: &str = "RESOLVE_CONFLICTS";
         app.init_resource::<InputMap<T>>()
-        	// Clear the `just_active` and `just_inactive` maps at the start of every iteration of the
-        	// application's main loop to ensure that there are no false positives
+            // Clear the `just_active` and `just_inactive` maps at the start of every iteration of the
+            // application's main loop to ensure that there are no false positives
             .add_system_to_stage(
                 CoreStage::First,
                 InputMap::<T>::clear_just_active_inactive.system(),
