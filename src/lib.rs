@@ -532,7 +532,7 @@ where
         T: 'static + Debug,
     {
         if input_map.wants_clear {
-            input.update();
+            input.clear();
             let mut v = vec![];
             for i in input.get_pressed().cloned() {
                 v.push(i);
@@ -560,21 +560,17 @@ where
     T: Hash + Eq + Clone + Send + Sync + Debug,
     'a: 'static,
 {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         const UPDATE_STATES_LABEL: &str = "UPDATE_STAES";
         const RESOLVE_CONFLICTS_LABEL: &str = "RESOLVE_CONFLICTS";
         app.init_resource::<InputMap<T>>()
             // Clear the `just_active` and `just_inactive` maps at the start of every iteration of the
             // application's main loop to ensure that there are no false positives
-            .add_system_to_stage(
-                CoreStage::First,
-                InputMap::<T>::clear_just_active_inactive.system(),
-            )
+            .add_system_to_stage(CoreStage::First, InputMap::<T>::clear_just_active_inactive)
             // Register keyboard input
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 InputMap::<T>::key_input
-                    .system()
                     .label(UPDATE_STATES_LABEL)
                     .after(InputSystem),
             )
@@ -582,7 +578,6 @@ where
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 InputMap::<T>::gamepad_state
-                    .system()
                     .label(UPDATE_STATES_LABEL)
                     .after(InputSystem),
             )
@@ -590,28 +585,21 @@ where
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 InputMap::<T>::gamepad_button_input
-                    .system()
                     .after(UPDATE_STATES_LABEL)
                     .before(RESOLVE_CONFLICTS_LABEL),
             )
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 InputMap::<T>::gamepad_axis_input
-                    .system()
                     .after(UPDATE_STATES_LABEL)
                     .before(RESOLVE_CONFLICTS_LABEL),
             )
             // Resolve all conflicts based on weight
             .add_system_to_stage(
                 CoreStage::PreUpdate,
-                InputMap::<T>::resolve_conflicts
-                    .system()
-                    .label(RESOLVE_CONFLICTS_LABEL),
+                InputMap::<T>::resolve_conflicts.label(RESOLVE_CONFLICTS_LABEL),
             )
             // And clear the inputs if requested
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                InputMap::<T>::clear_wants_clear.system(),
-            );
+            .add_system_to_stage(CoreStage::PostUpdate, InputMap::<T>::clear_wants_clear);
     }
 }
