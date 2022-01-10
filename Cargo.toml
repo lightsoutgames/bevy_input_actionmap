@@ -8,7 +8,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { git = "https://github.com/bevyengine/bevy.git", default-features = false }
+bevy = { version = "0.6.0", default-features = false }
+serde = { version = "1", optional = true }
 
 [dev-dependencies]
-bevy = { git = "https://github.com/bevyengine/bevy.git", default-features = false, features = ["bevy_winit", "x11"] }
+bevy = { version = "0.6.0", default-features = false, features = ["bevy_winit", "x11"] }
+ron = "0.6"
+
+[features]
+default = []
+serialize = ["bevy/serialize", "serde"]
