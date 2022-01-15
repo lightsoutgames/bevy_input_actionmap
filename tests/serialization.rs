@@ -25,5 +25,4 @@ fn test_serialize_to_string() {
     let deserialized: InputMap<TestAction> =
         ron::from_str(&serialized).expect("Failed deserialization");
     assert_eq!(map.actions, deserialized.actions);
-    println!("{:?}", map.actions);
 }
