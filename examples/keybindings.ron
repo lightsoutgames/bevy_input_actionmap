@@ -1,0 +1,102 @@
+{
+    Left: (
+        bindings: [
+            (
+                keys: [
+                    Left,
+                ],
+                gamepad_buttons: [],
+                gamepad_axis_directions: [],
+                deadzone: 0,
+            ),
+            (
+                keys: [],
+                gamepad_buttons: [
+                    West,
+                ],
+                gamepad_axis_directions: [],
+                deadzone: 0,
+            ),
+        ],
+    ),
+    Right: (
+        bindings: [
+            (
+                keys: [
+                    Right,
+                ],
+                gamepad_buttons: [],
+                gamepad_axis_directions: [],
+                deadzone: 0,
+            ),
+            (
+                keys: [],
+                gamepad_buttons: [
+                    East,
+                ],
+                gamepad_axis_directions: [],
+                deadzone: 0,
+            ),
+        ],
+    ),
+    Down: (
+        bindings: [
+            (
+                keys: [
+                    Down,
+                ],
+                gamepad_buttons: [],
+                gamepad_axis_directions: [],
+                deadzone: 0,
+            ),
+            (
+                keys: [],
+                gamepad_buttons: [
+                    South,
+                ],
+                gamepad_axis_directions: [],
+                deadzone: 0,
+            ),
+        ],
+    ),
+    Select: (
+        bindings: [
+            (
+                keys: [
+                    Return,
+                ],
+                gamepad_buttons: [],
+                gamepad_axis_directions: [],
+                deadzone: 0,
+            ),
+            (
+                keys: [],
+                gamepad_buttons: [
+                    Select,
+                ],
+                gamepad_axis_directions: [],
+                deadzone: 0,
+            ),
+        ],
+    ),
+    Up: (
+        bindings: [
+            (
+                keys: [
+                    Up,
+                ],
+                gamepad_buttons: [],
+                gamepad_axis_directions: [],
+                deadzone: 0,
+            ),
+            (
+                keys: [],
+                gamepad_buttons: [
+                    North,
+                ],
+                gamepad_axis_directions: [],
+                deadzone: 0,
+            ),
+        ],
+    ),
+}

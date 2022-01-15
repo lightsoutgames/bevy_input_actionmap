@@ -19,5 +19,7 @@ ron = "0.6"
 default = []
 serialize = ["bevy/serialize", "serde"]
 
-#[[example]]
-#name="hello_world_enum"
+
+[[example]]
+name = "serialization_file"
+required-features = ["serialize"]
