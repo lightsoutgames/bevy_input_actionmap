@@ -14,7 +14,7 @@ use bevy::{
 };
 
 #[cfg(feature = "serialize")]
-pub use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "serialize")]
 mod serialize;
@@ -155,7 +155,7 @@ impl Binding {
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 /// An Action consists of many bindings of which any count as triggering it
 pub struct Action {
-    pub bindings: Vec<Binding>,
+    pub (crate) bindings: Vec<Binding>,
 }
 
 impl Action {
@@ -235,7 +235,7 @@ impl Action {
 /// [`GamepadAxisDirection`]s) generic over the application's action event type.
 #[derive(Debug)]
 pub struct InputMap<T> {
-    pub actions: HashMap<T, Action>,
+    pub (crate)  actions: HashMap<T, Action>,
     pressed_buttons: HashMap<GamepadButtonType, f32>,
     gamepad_axis: HashMap<GamepadAxisDirection, f32>,
     raw_active: Vec<(T, Binding, f32)>,

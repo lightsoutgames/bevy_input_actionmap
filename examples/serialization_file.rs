@@ -82,7 +82,6 @@ fn save_to_path(input: &InputMap<Action>, path: &str) -> std::io::Result<()> {
 fn load_from_path(input: &mut InputMap<Action>, path: &str) -> std::io::Result<()> {
     let ron_string = std::fs::read_to_string(path)?;
     let config = ron::from_str::<InputMap<Action>>(&ron_string).expect("Failed to get actions from ron string");
-    input.actions = config.actions;
-    //may need to clear self here but i dont really know what that does
+    *input = config;
     Ok(())
 }

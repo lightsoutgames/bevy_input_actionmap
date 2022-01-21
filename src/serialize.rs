@@ -4,11 +4,10 @@ use std::marker::PhantomData;
 
 use serde::de::{MapAccess, Visitor};
 use serde::ser::SerializeMap;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer, Deserializer};
 
-use crate::InputMap;
+use crate::{InputMap};
 
-#[cfg(feature = "serialize")]
 impl<T: Serialize> Serialize for InputMap<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -22,7 +21,6 @@ impl<T: Serialize> Serialize for InputMap<T> {
     }
 }
 
-#[cfg(feature = "serialize")]
 impl<'de, T> Deserialize<'de> for InputMap<T>
 where
     T: Eq + Hash + Deserialize<'de>,
@@ -37,7 +35,6 @@ where
     }
 }
 
-#[cfg(feature = "serialize")]
 struct InputMapVisitor<K> {
     marker: PhantomData<fn() -> InputMap<K>>,
 }
@@ -50,7 +47,6 @@ impl<T> InputMapVisitor<T> {
     }
 }
 
-#[cfg(feature = "serialize")]
 impl<'de, T> Visitor<'de> for InputMapVisitor<T>
 where
     T: Deserialize<'de> + Eq + Hash,
@@ -75,4 +71,25 @@ where
 
         Ok(map)
     }
+}
+#[derive(Hash, PartialEq, Eq, Serialize, Deserialize, Debug, Copy, Clone)]
+enum TestAction {
+    Select,
+    SuperSelect,
+    AwesomeSuperSelect,
+}
+
+#[test]
+fn test_serialize_to_string() {
+    let mut map = InputMap::<TestAction>::default();
+    map.bind(TestAction::Select, vec![bevy::prelude::KeyCode::Space, bevy::prelude::KeyCode::LControl]);
+    map.bind(
+        TestAction::Select,
+        vec![bevy::prelude::GamepadButtonType::North, bevy::prelude::GamepadButtonType::LeftThumb],
+    );
+    map.bind(TestAction::AwesomeSuperSelect, bevy::prelude::GamepadButtonType::North);
+    let serialized = ron::to_string(&map).expect("Failed serialization");
+    let deserialized: InputMap<TestAction> =
+        ron::from_str(&serialized).expect("Failed deserialization");
+    assert_eq!(map.actions, deserialized.actions);
 }
