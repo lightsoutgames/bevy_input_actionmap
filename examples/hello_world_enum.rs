@@ -2,11 +2,11 @@ use bevy::prelude::*;
 use bevy_input_actionmap::*;
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(ActionPlugin::<Action>::default())
-        .add_startup_system(setup.system())
-        .add_system(run_commands.system())
+        .add_startup_system(setup)
+        .add_system(run_commands)
         .run();
 }
 

@@ -13,7 +13,14 @@ use bevy::{
     prelude::*,
 };
 
+#[cfg(feature = "serialize")]
+use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "serialize")]
+mod serialize;
+
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 /// A single binding consisting of sets of applicable key presses or gamepad activity meant to
 /// be used in tandem.
 pub struct Binding {
@@ -72,6 +79,7 @@ impl From<Vec<GamepadButtonType>> for Binding {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum GamepadAxisDirection {
     LeftStickXPositive,
     LeftStickXNegative,
@@ -144,9 +152,10 @@ impl Binding {
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
-/// An Action consists of many bindings of which any caount as triggering it
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+/// An Action consists of many bindings of which any count as triggering it
 pub struct Action {
-    bindings: Vec<Binding>,
+    pub (crate) bindings: Vec<Binding>,
 }
 
 impl Action {
@@ -224,8 +233,9 @@ impl Action {
 
 /// A Bevy resource tracking bound `Action`s (including [`KeyCode`]s, [`GamepadButtonType`]s, and
 /// [`GamepadAxisDirection`]s) generic over the application's action event type.
+#[derive(Debug)]
 pub struct InputMap<T> {
-    actions: HashMap<T, Action>,
+    pub (crate)  actions: HashMap<T, Action>,
     pressed_buttons: HashMap<GamepadButtonType, f32>,
     gamepad_axis: HashMap<GamepadAxisDirection, f32>,
     raw_active: Vec<(T, Binding, f32)>,
