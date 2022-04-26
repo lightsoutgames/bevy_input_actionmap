@@ -5,8 +5,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(ActionPlugin::<String>::default())
-        .add_startup_system(setup.system())
-        .add_system(run_commands.system())
+        .add_startup_system(setup)
+        .add_system(run_commands)
         .run();
 }
 
