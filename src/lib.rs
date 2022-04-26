@@ -34,10 +34,7 @@ impl From<KeyCode> for Binding {
     fn from(keycode: KeyCode) -> Self {
         let mut keys = HashSet::new();
         keys.insert(keycode);
-        Self {
-            keys,
-            ..Default::default()
-        }
+        Self { keys, ..default() }
     }
 }
 
@@ -49,7 +46,7 @@ impl From<Vec<KeyCode>> for Binding {
         }
         Self {
             keys: set,
-            ..Default::default()
+            ..default()
         }
     }
 }
@@ -60,7 +57,7 @@ impl From<GamepadButtonType> for Binding {
         buttons.insert(button);
         Self {
             gamepad_buttons: buttons,
-            ..Default::default()
+            ..default()
         }
     }
 }
@@ -73,7 +70,7 @@ impl From<Vec<GamepadButtonType>> for Binding {
         }
         Self {
             gamepad_buttons: set,
-            ..Default::default()
+            ..default()
         }
     }
 }
@@ -101,7 +98,7 @@ impl From<GamepadAxisDirection> for Binding {
         gamepad_axis_directions.insert(gamepad_axis_direction);
         Self {
             gamepad_axis_directions,
-            ..Default::default()
+            ..default()
         }
     }
 }
@@ -269,7 +266,7 @@ where
     /// Adds an instance of the application's action type to the list of actions, but with no bound
     /// inputs.
     pub fn add_action(&mut self, key: T) -> &mut Self {
-        self.actions.insert(key, Default::default());
+        self.actions.insert(key, default());
         self
     }
 
