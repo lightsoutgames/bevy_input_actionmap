@@ -36,7 +36,7 @@ fn setup(mut input: ResMut<InputMap<Action>>) {
         println!("keybindings loaded from local file") //just to show the path it took
     }
     #[cfg(not(feature = "serialize"))]
-        create_default_keybindings(&mut input);
+    create_default_keybindings(&mut input);
 }
 
 fn create_default_keybindings(input: &mut ResMut<InputMap<Action>>) {
@@ -81,7 +81,8 @@ fn save_to_path(input: &InputMap<Action>, path: &str) -> std::io::Result<()> {
 
 fn load_from_path(input: &mut InputMap<Action>, path: &str) -> std::io::Result<()> {
     let ron_string = std::fs::read_to_string(path)?;
-    let config = ron::from_str::<InputMap<Action>>(&ron_string).expect("Failed to get actions from ron string");
+    let config = ron::from_str::<InputMap<Action>>(&ron_string)
+        .expect("Failed to get actions from ron string");
     *input = config;
     Ok(())
 }
