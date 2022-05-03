@@ -8,11 +8,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { version = "0.6", default-features = false }
+bevy = { version = "0.7", default-features = false }
 serde = { version = "1", optional = true }
 
 [dev-dependencies]
-bevy = { version = "0.6", default-features = false, features = ["bevy_winit", "x11"] }
+bevy = { version = "0.7", default-features = false, features = ["bevy_winit", "x11"] }
 ron = "0.6"
 
 [features]

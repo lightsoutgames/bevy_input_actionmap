@@ -4,9 +4,9 @@ use std::marker::PhantomData;
 
 use serde::de::{MapAccess, Visitor};
 use serde::ser::SerializeMap;
-use serde::{Deserialize, Serialize, Serializer, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::{InputMap};
+use crate::InputMap;
 
 impl<T: Serialize> Serialize for InputMap<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -82,12 +82,24 @@ enum TestAction {
 #[test]
 fn test_serialize_to_string() {
     let mut map = InputMap::<TestAction>::default();
-    map.bind(TestAction::Select, vec![bevy::prelude::KeyCode::Space, bevy::prelude::KeyCode::LControl]);
     map.bind(
         TestAction::Select,
-        vec![bevy::prelude::GamepadButtonType::North, bevy::prelude::GamepadButtonType::LeftThumb],
+        vec![
+            bevy::prelude::KeyCode::Space,
+            bevy::prelude::KeyCode::LControl,
+        ],
     );
-    map.bind(TestAction::AwesomeSuperSelect, bevy::prelude::GamepadButtonType::North);
+    map.bind(
+        TestAction::Select,
+        vec![
+            bevy::prelude::GamepadButtonType::North,
+            bevy::prelude::GamepadButtonType::LeftThumb,
+        ],
+    );
+    map.bind(
+        TestAction::AwesomeSuperSelect,
+        bevy::prelude::GamepadButtonType::North,
+    );
     let serialized = ron::to_string(&map).expect("Failed serialization");
     let deserialized: InputMap<TestAction> =
         ron::from_str(&serialized).expect("Failed deserialization");
