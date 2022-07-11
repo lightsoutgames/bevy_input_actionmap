@@ -561,11 +561,10 @@ impl<'a, T> Default for ActionPlugin<'a, T> {
     }
 }
 
-impl<'a, T> Plugin for ActionPlugin<'a, T>
+impl<T> Plugin for ActionPlugin<'static, T>
 where
     InputMap<T>: Default,
     T: Hash + Eq + Clone + Send + Sync + Debug,
-    'a: 'static,
 {
     fn build(&self, app: &mut App) {
         const UPDATE_STATES_LABEL: &str = "UPDATE_STAES";
