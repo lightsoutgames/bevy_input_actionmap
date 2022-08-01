@@ -86,10 +86,6 @@ pub enum GamepadAxisDirection {
     RightStickXNegative,
     RightStickYPositive,
     RightStickYNegative,
-    DPadXPositive,
-    DPadXNegative,
-    DPadYPositive,
-    DPadYNegative,
 }
 
 impl From<GamepadAxisDirection> for Binding {
@@ -369,62 +365,62 @@ where
     {
         for event in gamepad_events.iter() {
             match &event {
-                GamepadEvent(gamepad, GamepadEventType::Connected) => {
+                GamepadEvent {
+                    gamepad,
+                    event_type,
+                } if event_type == &GamepadEventType::Connected => {
                     input.gamepads.insert(*gamepad);
                 }
-                GamepadEvent(gamepad, GamepadEventType::Disconnected) => {
+                GamepadEvent {
+                    gamepad,
+                    event_type,
+                } if event_type == &GamepadEventType::Disconnected => {
                     input.gamepads.remove(gamepad);
                 }
-                GamepadEvent(_, GamepadEventType::ButtonChanged(button, strength)) => {
-                    if strength > &0. {
-                        input.pressed_buttons.insert(*button, *strength);
-                    } else {
-                        input.pressed_buttons.remove(button);
-                    }
-                }
-                GamepadEvent(_, GamepadEventType::AxisChanged(axis_type, strength)) => {
-                    use GamepadAxisDirection::*;
-                    let positive = *strength >= 0.;
-                    let direction = match axis_type {
-                        GamepadAxisType::LeftStickX => Some(if positive {
-                            (LeftStickXPositive, LeftStickXNegative)
+                GamepadEvent {
+                    gamepad: _,
+                    event_type,
+                } => {
+                    if let GamepadEventType::ButtonChanged(button, strength) = event_type {
+                        if strength > &0. {
+                            input.pressed_buttons.insert(*button, *strength);
                         } else {
-                            (LeftStickXNegative, LeftStickXPositive)
-                        }),
-                        GamepadAxisType::LeftStickY => Some(if positive {
-                            (LeftStickYPositive, LeftStickYNegative)
-                        } else {
-                            (LeftStickYNegative, LeftStickYPositive)
-                        }),
-                        GamepadAxisType::RightStickX => Some(if positive {
-                            (RightStickXPositive, RightStickXNegative)
-                        } else {
-                            (RightStickXNegative, RightStickXPositive)
-                        }),
-                        GamepadAxisType::RightStickY => Some(if positive {
-                            (RightStickYPositive, RightStickYNegative)
-                        } else {
-                            (RightStickYNegative, RightStickYPositive)
-                        }),
-                        GamepadAxisType::DPadX => Some(if positive {
-                            (DPadXPositive, DPadXNegative)
-                        } else {
-                            (DPadXNegative, DPadXPositive)
-                        }),
-                        GamepadAxisType::DPadY => Some(if positive {
-                            (DPadYPositive, DPadYNegative)
-                        } else {
-                            (DPadYNegative, DPadYPositive)
-                        }),
-                        _ => None,
-                    };
-                    if let Some((direction, opposite)) = direction {
-                        if *strength != 0. {
-                            input.gamepad_axis.insert(direction, *strength);
-                        } else {
-                            input.gamepad_axis.remove(&direction);
+                            input.pressed_buttons.remove(button);
                         }
-                        input.gamepad_axis.remove(&opposite);
+                    } else if let GamepadEventType::AxisChanged(axis_type, strength) = event_type {
+                        use GamepadAxisDirection::*;
+                        let positive = *strength >= 0.;
+                        let direction = match axis_type {
+                            GamepadAxisType::LeftStickX => Some(if positive {
+                                (LeftStickXPositive, LeftStickXNegative)
+                            } else {
+                                (LeftStickXNegative, LeftStickXPositive)
+                            }),
+                            GamepadAxisType::LeftStickY => Some(if positive {
+                                (LeftStickYPositive, LeftStickYNegative)
+                            } else {
+                                (LeftStickYNegative, LeftStickYPositive)
+                            }),
+                            GamepadAxisType::RightStickX => Some(if positive {
+                                (RightStickXPositive, RightStickXNegative)
+                            } else {
+                                (RightStickXNegative, RightStickXPositive)
+                            }),
+                            GamepadAxisType::RightStickY => Some(if positive {
+                                (RightStickYPositive, RightStickYNegative)
+                            } else {
+                                (RightStickYNegative, RightStickYPositive)
+                            }),
+                            _ => None,
+                        };
+                        if let Some((direction, opposite)) = direction {
+                            if *strength != 0. {
+                                input.gamepad_axis.insert(direction, *strength);
+                            } else {
+                                input.gamepad_axis.remove(&direction);
+                            }
+                            input.gamepad_axis.remove(&opposite);
+                        }
                     }
                 }
             }
