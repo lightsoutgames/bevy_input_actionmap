@@ -420,7 +420,7 @@ where
                     };
                     if let Some((direction, opposite)) = direction {
                         if *strength != 0. {
-                            input.gamepad_axis.insert(direction, *strength);
+                            input.gamepad_axis.insert(direction, (*strength).abs());
                         } else {
                             input.gamepad_axis.remove(&direction);
                         }
