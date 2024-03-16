@@ -7,7 +7,7 @@ use std::{
 
 use bevy::{
     input::{
-        gamepad::{GamepadAxisType, GamepadEvent, GamepadEventType},
+        gamepad::{GamepadAxisType, GamepadEvent},
         InputSystem,
     },
     prelude::*,
@@ -86,10 +86,30 @@ pub enum GamepadAxisDirection {
     RightStickXNegative,
     RightStickYPositive,
     RightStickYNegative,
-    DPadXPositive,
-    DPadXNegative,
-    DPadYPositive,
-    DPadYNegative,
+    LeftZ,
+    RightZ,
+    Other( u8 )
+}
+
+impl GamepadAxisDirection {
+    /// Returns the opposite axis, or [None] if the axis only 
+    /// returns positive values
+    pub fn opposite(&self) -> Option<Self> {
+        use GamepadAxisDirection as GAD;
+        match self {
+            GAD::LeftStickXPositive => Some(GAD::LeftStickXNegative),
+            GAD::LeftStickXNegative => Some(GAD::LeftStickXPositive),
+            GAD::LeftStickYPositive => Some(GAD::LeftStickYNegative),
+            GAD::LeftStickYNegative => Some(GAD::LeftStickYPositive),
+            GAD::RightStickXPositive => Some(GAD::RightStickXNegative),
+            GAD::RightStickXNegative => Some(GAD::RightStickXPositive),
+            GAD::RightStickYPositive => Some(GAD::RightStickYPositive),
+            GAD::RightStickYNegative => Some(GAD::RightStickYPositive),
+            GAD::LeftZ => None,
+            GAD::RightZ => None,
+            GAD::Other(_) => None,
+        }
+    }
 }
 
 impl From<GamepadAxisDirection> for Binding {
@@ -105,7 +125,7 @@ impl From<GamepadAxisDirection> for Binding {
 
 impl Binding {
     /// Searches a single binding for whether all of it's assigned keys are pressed
-    fn key_pressed(&self, input: &Res<Input<KeyCode>>) -> bool {
+    fn key_pressed(&self, input: &Res<ButtonInput<KeyCode>>) -> bool {
         if self.keys.is_empty() {
             false
         } else {
@@ -159,7 +179,7 @@ impl Action {
     /// Searches all keypress Bindings for those being actively triggered and returns Some(Binding)
     /// of the Binding in question. Should multiple bindings be triggered at once, the one with the
     /// greatest [`Binding::weight`] is returned. Should no bindings be triggered, None is returned.
-    fn key_pressed(&self, input: &Res<Input<KeyCode>>) -> Option<Binding> {
+    fn key_pressed(&self, input: &Res<ButtonInput<KeyCode>>) -> Option<Binding> {
         let mut bindings = self
             .bindings
             .iter()
@@ -230,8 +250,11 @@ impl Action {
 
 /// A Bevy resource tracking bound `Action`s (including [`KeyCode`]s, [`GamepadButtonType`]s, and
 /// [`GamepadAxisDirection`]s) generic over the application's action event type.
-#[derive(Debug)]
-pub struct InputMap<T> {
+#[derive(Debug, Resource)]
+pub struct InputMap<T> 
+where
+    T: Hash + Eq + Clone + Send + Sync + Debug + 'static
+{
     pub(crate) actions: HashMap<T, Action>,
     pressed_buttons: HashMap<GamepadButtonType, f32>,
     gamepad_axis: HashMap<GamepadAxisDirection, f32>,
@@ -243,7 +266,10 @@ pub struct InputMap<T> {
     wants_clear: bool,
 }
 
-impl<T> Default for InputMap<T> {
+impl<T> Default for InputMap<T>
+where
+    T: Hash + Eq + Clone + Send + Sync + Debug + 'static
+{
     fn default() -> Self {
         Self {
             actions: HashMap::new(),
@@ -261,7 +287,7 @@ impl<T> Default for InputMap<T> {
 
 impl<T> InputMap<T>
 where
-    T: Hash + Eq + Clone + Send + Sync,
+    T: Hash + Eq + Clone + Send + Sync + Debug + 'static,
 {
     /// Adds an instance of the application's action type to the list of actions, but with no bound
     /// inputs.
@@ -348,7 +374,7 @@ where
     }
 
     /// System that listens to pressed [`KeyCodes`] to map to the configured actions
-    fn key_input(input: Res<Input<KeyCode>>, mut input_map: ResMut<InputMap<T>>)
+    fn key_input(input: Res<ButtonInput<KeyCode>>, mut input_map: ResMut<InputMap<T>>)
     where
         T: 'static + Debug,
     {
@@ -367,66 +393,51 @@ where
     where
         T: 'static + Debug,
     {
-        for event in gamepad_events.iter() {
+        use GamepadAxisDirection as GAD;
+        use GamepadAxisType as GAT;
+        for event in gamepad_events.read() {
             match &event {
-                GamepadEvent(gamepad, GamepadEventType::Connected) => {
-                    input.gamepads.insert(*gamepad);
-                }
-                GamepadEvent(gamepad, GamepadEventType::Disconnected) => {
-                    input.gamepads.remove(gamepad);
-                }
-                GamepadEvent(_, GamepadEventType::ButtonChanged(button, strength)) => {
-                    if strength > &0. {
-                        input.pressed_buttons.insert(*button, *strength);
-                    } else {
-                        input.pressed_buttons.remove(button);
+                GamepadEvent::Connection( event ) => {
+                    if event.connected() {
+                        input.gamepads.insert( event.gamepad );
                     }
-                }
-                GamepadEvent(_, GamepadEventType::AxisChanged(axis_type, strength)) => {
-                    use GamepadAxisDirection::*;
-                    let positive = *strength >= 0.;
-                    let direction = match axis_type {
-                        GamepadAxisType::LeftStickX => Some(if positive {
-                            (LeftStickXPositive, LeftStickXNegative)
-                        } else {
-                            (LeftStickXNegative, LeftStickXPositive)
-                        }),
-                        GamepadAxisType::LeftStickY => Some(if positive {
-                            (LeftStickYPositive, LeftStickYNegative)
-                        } else {
-                            (LeftStickYNegative, LeftStickYPositive)
-                        }),
-                        GamepadAxisType::RightStickX => Some(if positive {
-                            (RightStickXPositive, RightStickXNegative)
-                        } else {
-                            (RightStickXNegative, RightStickXPositive)
-                        }),
-                        GamepadAxisType::RightStickY => Some(if positive {
-                            (RightStickYPositive, RightStickYNegative)
-                        } else {
-                            (RightStickYNegative, RightStickYPositive)
-                        }),
-                        GamepadAxisType::DPadX => Some(if positive {
-                            (DPadXPositive, DPadXNegative)
-                        } else {
-                            (DPadXNegative, DPadXPositive)
-                        }),
-                        GamepadAxisType::DPadY => Some(if positive {
-                            (DPadYPositive, DPadYNegative)
-                        } else {
-                            (DPadYNegative, DPadYPositive)
-                        }),
-                        _ => None,
+                    else {
+                        input.gamepads.remove( &event.gamepad );
+                    }
+                },
+                GamepadEvent::Button( event ) => {
+                    if event.value > 0.0 {
+                        input.pressed_buttons.insert(event.button_type, event.value);
+                    } else {
+                        input.pressed_buttons.remove(&event.button_type);
+                    }
+                },
+                GamepadEvent::Axis( event ) => {
+                    let strength = event.value;
+                    let mut direction = match event.axis_type {
+                        GAT::LeftStickX  => GAD::LeftStickXPositive,
+                        GAT::LeftStickY  => GAD::LeftStickYPositive,
+                        GAT::RightStickX => GAD::RightStickXPositive,
+                        GAT::RightStickY => GAD::RightStickYPositive,
+                        GAT::LeftZ       => GAD::LeftZ,
+                        GAT::RightZ      => GAD::RightZ,
+                        GAT::Other(id)   => GAD::Other(id),
                     };
-                    if let Some((direction, opposite)) = direction {
-                        if *strength != 0. {
-                            input.gamepad_axis.insert(direction, *strength);
-                        } else {
-                            input.gamepad_axis.remove(&direction);
-                        }
+
+                    // flip direction, if the axis goes two ways and the is below zero
+                    if strength < 0.0 {
+                        direction = direction.opposite().unwrap_or( direction );
+                    }
+
+                    if strength != 0.0 {
+                        input.gamepad_axis.insert(direction, strength);
+                    } else {
+                        input.gamepad_axis.remove(&direction);
+                    }
+                    if let Some( opposite ) = direction.opposite() {
                         input.gamepad_axis.remove(&opposite);
                     }
-                }
+                },
             }
         }
     }
@@ -439,11 +450,11 @@ where
         let mut raw_active = input_map
             .actions
             .iter()
-            .map(|a| (a.0, a.1.button_pressed(&input_map.pressed_buttons)))
-            .filter(|v| v.1.is_some())
-            .map(|v| {
-                let press = v.1.unwrap();
-                (v.0.clone(), press.0, press.1)
+            .map(|(key, act)| (key, act.button_pressed(&input_map.pressed_buttons)))
+            .filter(|(_key, act)| act.is_some())
+            .map(|(key, act)| {
+                let (bind, strength) = act.unwrap();
+                (key.clone(), bind, strength)
             })
             .collect::<Vec<(T, Binding, f32)>>();
         input_map.raw_active.append(&mut raw_active);
@@ -468,7 +479,7 @@ where
     }
 
     /// System that prunes conflicting actions by prioritizing that with the higher weight.
-    fn resolve_conflicts(mut input_map: ResMut<InputMap<T>>, input: Res<Input<KeyCode>>)
+    fn resolve_conflicts(mut input_map: ResMut<InputMap<T>>, input: Res<ButtonInput<KeyCode>>)
     where
         T: 'static + Debug,
     {
@@ -534,7 +545,7 @@ where
 
     /// System that assists in clearing the input by modifying the actual [`Input`] resource interal
     /// to Bevy
-    fn clear_wants_clear(mut input_map: ResMut<InputMap<T>>, mut input: ResMut<Input<KeyCode>>)
+    fn clear_wants_clear(mut input_map: ResMut<InputMap<T>>, mut input: ResMut<ButtonInput<KeyCode>>)
     where
         T: 'static + Debug,
     {
@@ -561,51 +572,45 @@ impl<'a, T> Default for ActionPlugin<'a, T> {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash, SystemSet)]
+pub struct UpdateSet;
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, SystemSet)]
+pub struct ResolveConflictsSet;
+
+
+
 impl<T> Plugin for ActionPlugin<'static, T>
 where
     InputMap<T>: Default,
-    T: Hash + Eq + Clone + Send + Sync + Debug,
+    T: Hash + Eq + Clone + Send + Sync + Debug + 'static
 {
     fn build(&self, app: &mut App) {
-        const UPDATE_STATES_LABEL: &str = "UPDATE_STAES";
-        const RESOLVE_CONFLICTS_LABEL: &str = "RESOLVE_CONFLICTS";
-        app.init_resource::<InputMap<T>>()
+        app
+            .init_resource::<InputMap<T>>()
             // Clear the `just_active` and `just_inactive` maps at the start of every iteration of the
             // application's main loop to ensure that there are no false positives
-            .add_system_to_stage(CoreStage::First, InputMap::<T>::clear_just_active_inactive)
+            .add_systems(PostUpdate, InputMap::<T>::clear_just_active_inactive)
             // Register keyboard input
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                InputMap::<T>::key_input
-                    .label(UPDATE_STATES_LABEL)
-                    .after(InputSystem),
+            .add_systems(PreUpdate,
+                (InputMap::<T>::key_input)
+                    .in_set(UpdateSet)
+                    .after(InputSystem)
             )
             // Register gamepad inputs
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                InputMap::<T>::gamepad_state
-                    .label(UPDATE_STATES_LABEL)
-                    .after(InputSystem),
+            .add_systems(PreUpdate, InputMap::<T>::gamepad_state
+                    .in_set(UpdateSet).after(InputSystem),
             )
             // Then map those gamepad inputs to the correct actions
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                InputMap::<T>::gamepad_button_input
-                    .after(UPDATE_STATES_LABEL)
-                    .before(RESOLVE_CONFLICTS_LABEL),
-            )
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                InputMap::<T>::gamepad_axis_input
-                    .after(UPDATE_STATES_LABEL)
-                    .before(RESOLVE_CONFLICTS_LABEL),
+            .add_systems(PreUpdate, 
+                (InputMap::<T>::gamepad_button_input, InputMap::<T>::gamepad_axis_input)
+                    .after(UpdateSet).before(ResolveConflictsSet)
             )
             // Resolve all conflicts based on weight
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                InputMap::<T>::resolve_conflicts.label(RESOLVE_CONFLICTS_LABEL),
+            .add_systems(PreUpdate, InputMap::<T>::resolve_conflicts
+                .in_set(ResolveConflictsSet)
             )
             // And clear the inputs if requested
-            .add_system_to_stage(CoreStage::PostUpdate, InputMap::<T>::clear_wants_clear);
+            .add_systems(PostUpdate, InputMap::<T>::clear_wants_clear);
     }
 }

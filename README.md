@@ -13,3 +13,10 @@ Things that don't work and that I'd appreciate help with:
 * Mouse gestures. PRs welcome.
 * Serialization of keybindings. PRs welcome.
 * Probably a million other things. PRs welcome.
+
+## Bevy Version Support
+
+| bevy | bevy_input_actionmap |
+| ---- | -------------------- |
+| 0.13 | 0.13                 |
+| 0.7  | 0.1                  |

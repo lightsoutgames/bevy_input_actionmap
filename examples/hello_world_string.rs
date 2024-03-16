@@ -4,9 +4,9 @@ use bevy_input_actionmap::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(ActionPlugin::<String>::default())
-        .add_startup_system(setup)
-        .add_system(run_commands)
+        .add_plugins(ActionPlugin::<String>::default())
+        .add_systems(Startup, setup)
+        .add_systems(Update, run_commands)
         .run();
 }
 
@@ -16,14 +16,14 @@ const ACTION_AWESOME_SUPER_SELECT: &str = "AWESOME_SUPER_SELECT";
 
 fn setup(mut input: ResMut<InputMap<String>>) {
     input
-        .bind(ACTION_SELECT, KeyCode::Return)
+        .bind(ACTION_SELECT, KeyCode::Enter)
         .bind(ACTION_SELECT, GamepadButtonType::South)
-        .bind(ACTION_SUPER_SELECT, vec![KeyCode::LAlt, KeyCode::Return])
-        .bind(ACTION_SUPER_SELECT, vec![KeyCode::RAlt, KeyCode::Return])
+        .bind(ACTION_SUPER_SELECT, vec![KeyCode::AltLeft, KeyCode::Enter])
+        .bind(ACTION_SUPER_SELECT, vec![KeyCode::AltRight, KeyCode::Enter])
         // This should bind left/right control and left/right alt, but the combos would get ridiculous so hopefully this is sufficient.
         .bind(
             ACTION_AWESOME_SUPER_SELECT,
-            vec![KeyCode::LAlt, KeyCode::LControl, KeyCode::Return],
+            vec![KeyCode::AltLeft, KeyCode::ControlLeft, KeyCode::Enter],
         );
 }
 
