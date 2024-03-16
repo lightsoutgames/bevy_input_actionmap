@@ -2,6 +2,8 @@ use std::fmt::Formatter;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
+use bevy::input::gamepad::GamepadButtonType;
+use bevy::input::keyboard::KeyCode;
 use serde::de::{MapAccess, Visitor};
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -85,20 +87,20 @@ fn test_serialize_to_string() {
     map.bind(
         TestAction::Select,
         vec![
-            bevy::prelude::KeyCode::Space,
-            bevy::prelude::KeyCode::LControl,
+            KeyCode::Space,
+            KeyCode::ControlLeft,
         ],
     );
     map.bind(
         TestAction::Select,
         vec![
-            bevy::prelude::GamepadButtonType::North,
-            bevy::prelude::GamepadButtonType::LeftThumb,
+            GamepadButtonType::North,
+            GamepadButtonType::LeftThumb,
         ],
     );
     map.bind(
         TestAction::AwesomeSuperSelect,
-        bevy::prelude::GamepadButtonType::North,
+        GamepadButtonType::North,
     );
     let serialized = ron::to_string(&map).expect("Failed serialization");
     let deserialized: InputMap<TestAction> =

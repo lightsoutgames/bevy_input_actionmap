@@ -4,40 +4,68 @@ use bevy_input_actionmap::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(ActionPlugin::<Action>::default())
-        .add_startup_system(setup)
-        .add_system(run_commands)
+        .add_plugins(ActionPlugin::<MyAction>::default())
+        .add_systems(Startup, setup)
+        .add_systems(Update, run_commands)
         .run();
 }
 
-#[derive(Hash, PartialEq, Eq, Clone, Debug)]
-enum Action {
+#[derive(Hash, PartialEq, Eq, Clone)]
+enum MyAction {
     Select,
     SuperSelect,
     AwesomeSuperSelect,
+    FooBar,
 }
 
-fn setup(mut input: ResMut<InputMap<Action>>) {
+fn setup(mut input: ResMut<InputMap<MyAction>>) {
     input
-        .bind(Action::Select, KeyCode::Return)
-        .bind(Action::Select, GamepadButtonType::South)
-        .bind(Action::SuperSelect, vec![KeyCode::LAlt, KeyCode::Return])
-        .bind(Action::SuperSelect, vec![KeyCode::RAlt, KeyCode::Return])
+        .bind(MyAction::Select, KeyCode::Enter)
+        .bind(MyAction::Select, GamepadButtonType::South)
+        .bind(MyAction::Select, GamepadAxisDirection::LeftStickYPositive)
+        .bind(
+            MyAction::SuperSelect,
+            vec![KeyCode::AltLeft, KeyCode::Enter],
+        )
+        .bind(
+            MyAction::SuperSelect,
+            vec![KeyCode::AltRight, KeyCode::Enter],
+        )
         // This should bind left/right control and left/right alt, but the combos would get ridiculous so hopefully this is sufficient.
         .bind(
-            Action::AwesomeSuperSelect,
-            vec![KeyCode::LAlt, KeyCode::LControl, KeyCode::Return],
+            MyAction::AwesomeSuperSelect,
+            vec![KeyCode::AltLeft, KeyCode::ControlLeft, KeyCode::Enter],
         );
+
+    // Ctrl + X + MiddleClick!
+    input.bind(MyAction::FooBar, 
+        Binding::new(KeyCode::ControlLeft)
+            .with(KeyCode::KeyX)
+            .with(MouseButton::Middle)
+    );
+    
+    // Controller + Keyboard combos are not just possible, 
+    // they're annoying!
+    input.bind(
+        MyAction::FooBar,
+        Binding::new(KeyCode::ControlLeft)
+            .with(GamepadButtonType::RightTrigger)
+            .with_axis(GamepadAxisDirection::LeftStickXPositive, 0.2)
+    );
 }
 
-fn run_commands(input: Res<InputMap<Action>>) {
-    if input.just_active(Action::Select) {
+fn run_commands(input: Res<InputMap<MyAction>>) {
+    if input.just_active(MyAction::Select) {
         println!("Selected");
     }
-    if input.just_active(Action::SuperSelect) {
+    if input.just_active(MyAction::SuperSelect) {
         println!("Super selected");
     }
-    if input.just_active(Action::AwesomeSuperSelect) {
+    if input.just_active(MyAction::AwesomeSuperSelect) {
         println!("Awesome super selected");
+    }
+
+    if input.just_active(MyAction::FooBar) {
+        println!("FooBar!!!!!!");
     }
 }
