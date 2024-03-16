@@ -251,10 +251,7 @@ impl Action {
 /// A Bevy resource tracking bound `Action`s (including [`KeyCode`]s, [`GamepadButtonType`]s, and
 /// [`GamepadAxisDirection`]s) generic over the application's action event type.
 #[derive(Debug, Resource)]
-pub struct InputMap<T> 
-where
-    T: Hash + Eq + Clone + Send + Sync + Debug + 'static
-{
+pub struct InputMap<T> {
     pub(crate) actions: HashMap<T, Action>,
     pressed_buttons: HashMap<GamepadButtonType, f32>,
     gamepad_axis: HashMap<GamepadAxisDirection, f32>,
@@ -266,10 +263,7 @@ where
     wants_clear: bool,
 }
 
-impl<T> Default for InputMap<T>
-where
-    T: Hash + Eq + Clone + Send + Sync + Debug + 'static
-{
+impl<T> Default for InputMap<T> {
     fn default() -> Self {
         Self {
             actions: HashMap::new(),

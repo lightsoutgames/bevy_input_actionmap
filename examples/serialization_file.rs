@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 
 fn main() {
     App::new()
-        .add_plugin(ActionPlugin::<Action>::default())
+        .add_plugins(ActionPlugin::<Action>::default())
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(run_commands)
+        .add_systems(Startup, setup)
+        .add_systems(Update, run_commands)
         .run();
 }
 
@@ -42,15 +42,15 @@ fn setup(mut input: ResMut<InputMap<Action>>) {
 fn create_default_keybindings(input: &mut ResMut<InputMap<Action>>) {
     //this is so if you want to change default keybindings you dont need to do more then once
     input
-        .bind(Action::Select, KeyCode::Return)
+        .bind(Action::Select, KeyCode::Enter)
         .bind(Action::Select, GamepadButtonType::Select)
-        .bind(Action::Up, vec![KeyCode::Up])
+        .bind(Action::Up, vec![KeyCode::ArrowUp])
         .bind(Action::Up, vec![GamepadButtonType::North])
-        .bind(Action::Down, vec![KeyCode::Down])
+        .bind(Action::Down, vec![KeyCode::ArrowDown])
         .bind(Action::Down, vec![GamepadButtonType::South])
-        .bind(Action::Left, vec![KeyCode::Left])
+        .bind(Action::Left, vec![KeyCode::ArrowLeft])
         .bind(Action::Left, vec![GamepadButtonType::West])
-        .bind(Action::Right, vec![KeyCode::Right])
+        .bind(Action::Right, vec![KeyCode::ArrowRight])
         .bind(Action::Right, vec![GamepadButtonType::East]);
 }
 
