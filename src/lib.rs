@@ -40,8 +40,17 @@ impl Binding {
         me
     }
 
+    pub fn axis(axis: GamepadAxisDirection, deadzone: f32) -> Self {
+        Self::default().with_axis(axis, deadzone)
+    }
+
     pub fn with(mut self, input: impl Into<BindInput>) -> Self {
         self.inputs.insert( input.into() );
+        self
+    }
+
+    pub fn with_axis(mut self, axis: GamepadAxisDirection, deadzone: f32) -> Self {
+        self.inputs.insert( GamepadAxisInput::new(axis, deadzone).into() );
         self
     }
     
@@ -182,66 +191,6 @@ impl Binding {
         }
     }
 
-    /// Searches a single binding for whether all of it's assigned keys are pressed
-    fn mouse_button_pressed(&self, input: &ButtonInput<MouseButton>) -> bool {
-        let keys = self.inputs.iter()
-            .filter_map(|b|{
-                match b {
-                    BindInput::MouseButton(m) => Some(input.pressed(*m)),
-                    _ => None,
-                }
-            })
-            .collect::<Vec<bool>>();
-
-        if keys.len() == 0 {
-            false
-        }
-        else {
-            keys.into_iter().fold(true, |it, acc| acc && it)
-        }
-    }
-
-    /// Searches a single binding for whether all of it's assigned gamepad buttons are pressed
-    fn gamepad_button_pressed(&self, buttons: &ButtonInput<GamepadButtonType>) -> bool {
-        let keys = self.inputs.iter()
-            .filter_map(|b|{
-                match b {
-                    BindInput::GamepadButton(b) => Some(buttons.pressed(*b)),
-                    _ => None,
-                }
-            })
-            .collect::<Vec<bool>>();
-
-        if keys.len() == 0 {
-            false
-        }
-        else {
-            keys.into_iter().fold(true, |it, acc| acc && it)
-        }
-    }
-
-    /// Searches a single binding for whether all of it's assigned gamepad axes are pressed
-    fn gamepad_axis_changed(&self, input: &HashMap<GamepadAxisDirection, f32>) -> bool {
-        let keys = self.inputs.iter()
-            .filter_map(|b|{
-                match b {
-                    BindInput::GamepadAxis( gba ) => Some(
-                        input.contains_key(&gba.axis()) 
-                            && input.get(&gba.axis()).unwrap().abs() > gba.deadzone()
-                    ),
-                    _ => None,
-                }
-            })
-            .collect::<Vec<bool>>();
-
-        if keys.len() == 0 {
-            false
-        }
-        else {
-            keys.into_iter().fold(true, |it, acc| acc && it)
-        }
-    }
-
     /// Describes how many keys or buttons must be pressed at once to trigger this binding
     fn weight(&self) -> usize {
         self.inputs.len()
@@ -299,82 +248,6 @@ impl Action {
     pub fn with(mut self, bind: impl Into<Binding>) -> Self {
         self.bindings.push(bind.into());
         self
-    }
-
-    // fn check_against()
-
-    /// Searches all keypress Bindings for those being actively triggered and returns Some(Binding)
-    /// of the Binding in question. Should multiple bindings be triggered at once, the one with the
-    /// greatest [`Binding::weight`] is returned. Should no bindings be triggered, None is returned.
-    fn key_pressed(&self, input: &Res<ButtonInput<KeyCode>>) -> Option<Binding> {
-        let mut bindings = self
-            .bindings
-            .iter()
-            .filter(|it| it.key_pressed(input))
-            .cloned()
-            .collect::<Vec<Binding>>();
-        bindings.sort_by(|v1, v2| (v1.weight().partial_cmp(&v2.weight()).unwrap()));
-        bindings.last().cloned()
-    }
-
-    /// Searches all mouse button Bindings for those being actively triggered and returns
-    /// Some(Binding) of the Binding in question. Should multiple bindings be triggered at once, the
-    /// one with the greatest [`Binding::weight`] is returned. Should no bindings be triggered, None
-    /// is returned.
-    fn mouse_button_pressed(&self, buttons: &ButtonInput<MouseButton>) -> Option<Binding> {
-        let mut bindings = self
-            .bindings
-            .iter()
-            .filter(|it| it.mouse_button_pressed(buttons))
-            .cloned()
-            .collect::<Vec<Binding>>();
-        bindings.sort_by(|v1, v2| (v1.weight().partial_cmp(&v2.weight()).unwrap()));
-        bindings.last().cloned()
-    }
-
-    /// Searches all gamepad button Bindings for those being actively triggered and returns
-    /// Some(Binding) of the Binding in question. Should multiple bindings be triggered at once, the
-    /// one with the greatest [`Binding::weight`] is returned. Should no bindings be triggered, None
-    /// is returned.
-    fn button_pressed(&self, buttons: &ButtonInput<GamepadButtonType>) -> Option<Binding> {
-        let mut bindings = self
-            .bindings
-            .iter()
-            .filter(|it| it.gamepad_button_pressed(buttons))
-            .cloned()
-            .collect::<Vec<Binding>>();
-        bindings.sort_by(|v1, v2| (v1.weight().partial_cmp(&v2.weight()).unwrap()));
-        bindings.last().cloned()
-    }
-
-    /// Searches all gamepad axis Bindings for those being actively triggered and returns
-    /// Some((Binding, f32)) of the Binding and the strength of the axis pull in question. Should
-    /// multiple bindings be triggered at once, the one with the greatest [`Binding::weight`] is
-    /// returned. Should no bindings be triggered, None is returned.
-    fn gamepad_axis_changed(
-        &self,
-        directions: &HashMap<GamepadAxisDirection, f32>,
-    ) -> Option<(Binding, f32)> {
-        let mut axis_bindings = self
-            .bindings
-            .iter()
-            .filter(|it| it.gamepad_axis_changed(directions))
-            .cloned()
-            .collect::<Vec<Binding>>();
-        axis_bindings.sort_by(|v1, v2| (v1.weight().partial_cmp(&v2.weight()).unwrap()));
-        let binding = axis_bindings.last().cloned();
-        if let Some(binding) = binding {
-            let mut strength = 0.0;
-            for (k, v) in directions.iter() {
-                if binding.contains_axis(*k) {
-                    strength += v;
-                }
-            }
-            strength /= axis_bindings.len() as f32;
-            Some((binding, strength))
-        } else {
-            None
-        }
     }
 }
 
@@ -495,37 +368,6 @@ where
     }
 
 
-    /// System that listens to pressed [`KeyCodes`] to map to the configured actions
-    fn key_input(input: Res<ButtonInput<KeyCode>>, mut input_map: ResMut<InputMap<T>>)
-    where
-        T: 'static + Debug,
-    {
-        let mut raw_active = input_map
-            .actions
-            .iter()
-            .map(|a| (a.0, a.1.key_pressed(&input)))
-            .filter(|v| v.1.is_some())
-            .map(|v| (v.0.clone(), v.1.unwrap(), 1.))
-            .collect::<Vec<(T, Binding, f32)>>();
-        input_map.raw_active.append(&mut raw_active);
-    }
-
-    /// System that listens to pressed [`KeyCodes`] to map to the configured actions
-    fn mouse_buttons(input: Res<ButtonInput<MouseButton>>, mut input_map: ResMut<InputMap<T>>)
-    where
-        T: 'static + Debug,
-    {
-        let mut raw_active = input_map
-            .actions
-            .iter()
-            .map(|a| (a.0, a.1.mouse_button_pressed(&input)))
-            .filter(|v| v.1.is_some())
-            .map(|v| (v.0.clone(), v.1.unwrap(), 1.))
-            .collect::<Vec<(T, Binding, f32)>>();
-        input_map.raw_active.append(&mut raw_active);
-    }
-
-
     /// System that listens to [`GamepadEvent`]s to write into the raw inputs
     fn gamepad_state(mut gamepad_events: EventReader<GamepadEvent>, mut input: ResMut<InputMap<T>>)
     where
@@ -534,6 +376,7 @@ where
         use GamepadAxisDirection as GAD;
         use GamepadAxisType as GAT;
         for event in gamepad_events.read() {
+            // println!(" => {event:?}");
             match &event {
                 GamepadEvent::Connection( event ) => {
                     if event.connected() {
@@ -578,41 +421,6 @@ where
                 },
             }
         }
-    }
-
-    /// System that updates the gamepad button inputs in the [`InputMap`]
-    fn gamepad_button_input(mut input_map: ResMut<InputMap<T>>)
-    where
-        T: 'static + Debug,
-    {
-        let mut raw_active = input_map
-            .actions
-            .iter()
-            .map(|(key, act)| (key, act.button_pressed(&input_map.gamepad_pressed_buttons)))
-            .filter(|(_key, act)| act.is_some())
-            .map(|(key, act)| {
-                (key.clone(), act.unwrap(), 1.0)
-            })
-            .collect::<Vec<(T, Binding, f32)>>();
-        input_map.raw_active.append(&mut raw_active);
-    }
-
-    /// System that updates the gamepad axis inputs in the [`InputMap`]
-    fn gamepad_axis_input(mut input_map: ResMut<InputMap<T>>)
-    where
-        T: 'static + Debug,
-    {
-        let mut raw_active = input_map
-            .actions
-            .iter()
-            .map(|a| (a.0, a.1.gamepad_axis_changed(&input_map.gamepad_axis)))
-            .filter(|v| v.1.is_some())
-            .map(|v| {
-                let rv = v.1.unwrap();
-                (v.0.clone(), rv.0, rv.1)
-            })
-            .collect::<Vec<(T, Binding, f32)>>();
-        input_map.raw_active.append(&mut raw_active);
     }
 
     /// System that prunes conflicting actions by prioritizing that with the higher weight.
@@ -720,26 +528,12 @@ where
             // Clear the `just_active` and `just_inactive` maps at the start of every iteration of the
             // application's main loop to ensure that there are no false positives
             .add_systems(PostUpdate, InputMap::<T>::clear_just_active_inactive)
-            // // Register keyboard, gamepad button, and mouse button input
-            // .add_systems(PreUpdate,
-            //     (InputMap::<T>::key_input, InputMap::<T>::gamepad_state, InputMap::<T>::mouse_buttons)
-            //         .in_set(UpdateSet)
-            //         .after(InputSystem)
-            // )
-            // // Register gamepad inputs
-            // .add_systems(PreUpdate, InputMap::<T>::gamepad_state
-            //         .in_set(UpdateSet).after(InputSystem),
-            // )
-            // // Then map those gamepad inputs to the correct actions
-            // .add_systems(PreUpdate, 
-            //     (InputMap::<T>::gamepad_button_input, InputMap::<T>::gamepad_axis_input)
-            //         .after(UpdateSet).before(ResolveConflictsSet)
-            // )
+            // Register keyboard, gamepad button, and mouse button input
             .add_systems(PreUpdate, (InputMap::<T>::gamepad_state, InputMap::<T>::handle_input)
                 .after(InputSystem)
+                .chain_ignore_deferred()
                 .before(ResolveConflictsSet)
             )
-
             // Resolve all conflicts based on weight
             .add_systems(PreUpdate, InputMap::<T>::resolve_conflicts
                 .in_set(ResolveConflictsSet)
