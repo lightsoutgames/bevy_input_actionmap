@@ -1,5 +1,4 @@
 use std::{
-    cmp::max,
     collections::{HashMap, HashSet},
     fmt::Debug,
     hash::Hash,
@@ -19,61 +18,93 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "serialize")]
 mod serialize;
 
+mod input;
+pub use input::*;
+
+/// A set of [BindInput]s which must all be met to trigger an action
 #[derive(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
-/// A single binding consisting of sets of applicable key presses or gamepad activity meant to
-/// be used in tandem.
 pub struct Binding {
-    keys: HashSet<KeyCode>,
-    gamepad_buttons: HashSet<GamepadButtonType>,
-    gamepad_axis_directions: HashSet<GamepadAxisDirection>,
-    deadzone: f32,
+    pub(crate) inputs: HashSet<BindInput>,
 }
 
-impl From<KeyCode> for Binding {
-    fn from(keycode: KeyCode) -> Self {
-        let mut keys = HashSet::new();
-        keys.insert(keycode);
-        Self { keys, ..default() }
+impl Binding {
+    pub fn new<B>(inputs: &[ B ]) -> Self
+    where
+        B: Into<BindInput> + Clone
+     {
+        let mut me = Self::default();
+        for i in inputs.into_iter() {
+            me.inputs.insert( i.clone().into() );
+        }
+        me
+    }
+
+    pub fn with(mut self, input: impl Into<BindInput>) -> Self {
+        self.inputs.insert( input.into() );
+        self
+    }
+    
+    /// Returns the strength of this combo if all its conditions are met,
+    /// [None] otherwise.
+    fn check<T>(&self,
+        input_map: &InputMap<T>,
+        keys: &ButtonInput<KeyCode>,
+        mouse: &ButtonInput<MouseButton>
+    ) -> Option<f32>
+        where T: Hash + Eq + Clone + Send + Sync + Debug + 'static 
+    {
+        let (all_true, total_str) = self.inputs
+            .iter()
+            .map(|b|{
+                match b {
+                    BindInput::Keyboard( k ) => (keys.pressed(*k), 1.0),
+                    BindInput::MouseButton(mb) => (mouse.pressed(*mb), 1.0),
+                    BindInput::GamepadButton(b) => (
+                        input_map.gamepad_pressed_buttons.pressed(*b), 
+                        1.0
+                    ),
+                    BindInput::GamepadAxis(gpa) => {
+                        if let Some( strength ) = input_map.gamepad_axis.get( &gpa.axis() ) {
+                            (true, *strength)
+                        }
+                        else {
+                            (false, 0.0)
+                        }
+                    },
+                }
+            })
+            .fold((true, 0.0), |(acc_true, acc_str), (t, s)| {
+                (acc_true & t,  acc_str + s)
+            });
+
+        if all_true {
+            Some( total_str )
+        }
+        else {
+            None
+        }
     }
 }
 
-impl From<Vec<KeyCode>> for Binding {
-    fn from(keys: Vec<KeyCode>) -> Self {
-        let mut set = HashSet::new();
-        for key in keys {
-            set.insert(key);
-        }
-        Self {
-            keys: set,
-            ..default()
-        }
+impl<B: Into<BindInput> + Sized> From<B> for Binding {
+    fn from(value: B) -> Self {
+        let mut inputs = HashSet::new();
+        inputs.insert(value.into());
+        Self { inputs }
     }
 }
 
-impl From<GamepadButtonType> for Binding {
-    fn from(button: GamepadButtonType) -> Self {
-        let mut buttons = HashSet::new();
-        buttons.insert(button);
-        Self {
-            gamepad_buttons: buttons,
-            ..default()
+impl<B: Into<BindInput> + Sized> From<Vec<B>> for Binding {
+    fn from(values: Vec<B>) -> Self {
+        let mut inputs = HashSet::new();
+        for v in values {
+            inputs.insert(v.into());
         }
+        Self { inputs }
     }
 }
 
-impl From<Vec<GamepadButtonType>> for Binding {
-    fn from(buttons: Vec<GamepadButtonType>) -> Self {
-        let mut set = HashSet::new();
-        for button in buttons {
-            set.insert(button);
-        }
-        Self {
-            gamepad_buttons: set,
-            ..default()
-        }
-    }
-}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
@@ -112,59 +143,142 @@ impl GamepadAxisDirection {
     }
 }
 
-impl From<GamepadAxisDirection> for Binding {
-    fn from(gamepad_axis_direction: GamepadAxisDirection) -> Self {
-        let mut gamepad_axis_directions = HashSet::new();
-        gamepad_axis_directions.insert(gamepad_axis_direction);
-        Self {
-            gamepad_axis_directions,
-            ..default()
+impl Binding {
+
+    pub fn contains(&self, bind: impl Into<BindInput>) -> bool {
+        let bind = bind.into();
+        self.inputs.contains( &bind )
+    }
+
+    pub fn contains_axis(&self, axis: GamepadAxisDirection) -> bool {
+        for bind in self.inputs.iter() {
+            match bind {
+                BindInput::GamepadAxis( gai ) => {
+                    if gai.axis() == axis { return true }
+                },
+                _ => continue
+            }
+        }
+
+        false
+    }
+
+    /// Searches a single binding for whether all of it's assigned keys are pressed
+    fn key_pressed(&self, input: &ButtonInput<KeyCode>) -> bool {
+        let keys = self.inputs.iter()
+            .filter_map(|b|{
+                match b {
+                    BindInput::Keyboard(k) => Some(input.pressed(*k)),
+                    _ => None,
+                }
+            })
+            .collect::<Vec<bool>>();
+
+        if keys.len() == 0 {
+            false
+        }
+        else {
+            keys.into_iter().fold(true, |it, acc| acc && it)
         }
     }
-}
 
-impl Binding {
     /// Searches a single binding for whether all of it's assigned keys are pressed
-    fn key_pressed(&self, input: &Res<ButtonInput<KeyCode>>) -> bool {
-        if self.keys.is_empty() {
+    fn mouse_button_pressed(&self, input: &ButtonInput<MouseButton>) -> bool {
+        let keys = self.inputs.iter()
+            .filter_map(|b|{
+                match b {
+                    BindInput::MouseButton(m) => Some(input.pressed(*m)),
+                    _ => None,
+                }
+            })
+            .collect::<Vec<bool>>();
+
+        if keys.len() == 0 {
             false
-        } else {
-            self.keys
-                .iter()
-                .map(|it| input.pressed(*it))
-                .fold(true, |it, acc| acc && it)
+        }
+        else {
+            keys.into_iter().fold(true, |it, acc| acc && it)
         }
     }
 
     /// Searches a single binding for whether all of it's assigned gamepad buttons are pressed
-    fn button_pressed(&self, buttons: &HashMap<GamepadButtonType, f32>) -> bool {
-        if self.gamepad_buttons.is_empty() {
+    fn gamepad_button_pressed(&self, buttons: &ButtonInput<GamepadButtonType>) -> bool {
+        let keys = self.inputs.iter()
+            .filter_map(|b|{
+                match b {
+                    BindInput::GamepadButton(b) => Some(buttons.pressed(*b)),
+                    _ => None,
+                }
+            })
+            .collect::<Vec<bool>>();
+
+        if keys.len() == 0 {
             false
-        } else {
-            self.gamepad_buttons
-                .iter()
-                .map(|it| {
-                    buttons.contains_key(it) && buttons.get(it).unwrap().abs() > self.deadzone
-                })
-                .fold(true, |it, acc| acc && it)
+        }
+        else {
+            keys.into_iter().fold(true, |it, acc| acc && it)
         }
     }
 
     /// Searches a single binding for whether all of it's assigned gamepad axes are pressed
     fn gamepad_axis_changed(&self, input: &HashMap<GamepadAxisDirection, f32>) -> bool {
-        if self.gamepad_axis_directions.is_empty() {
+        let keys = self.inputs.iter()
+            .filter_map(|b|{
+                match b {
+                    BindInput::GamepadAxis( gba ) => Some(
+                        input.contains_key(&gba.axis()) 
+                            && input.get(&gba.axis()).unwrap().abs() > gba.deadzone()
+                    ),
+                    _ => None,
+                }
+            })
+            .collect::<Vec<bool>>();
+
+        if keys.len() == 0 {
             false
-        } else {
-            self.gamepad_axis_directions
-                .iter()
-                .map(|it| input.contains_key(it) && input.get(it).unwrap().abs() > self.deadzone)
-                .fold(true, |it, acc| acc && it)
+        }
+        else {
+            keys.into_iter().fold(true, |it, acc| acc && it)
         }
     }
 
     /// Describes how many keys or buttons must be pressed at once to trigger this binding
     fn weight(&self) -> usize {
-        max(self.keys.len(), self.gamepad_buttons.len())
+        self.inputs.len()
+    }
+
+    /// Returns a list of all [KeyCode]s this binding requires
+    pub fn get_keycodes(&self) -> Vec<KeyCode> {
+        self.inputs.iter()
+            .filter_map(|b|{
+                match b {
+                    BindInput::Keyboard(k) => Some(*k),
+                    _ => None,
+                }
+            })
+            .collect()
+    }
+
+    pub fn get_mouse_buttons(&self) -> Vec<MouseButton> {
+        self.inputs.iter()
+            .filter_map(|b|{
+                match b {
+                    BindInput::MouseButton(k) => Some(*k),
+                    _ => None,
+                }
+            })
+            .collect()
+    }
+
+    pub fn get_gamepad_buttons(&self) -> Vec<GamepadButtonType> {
+        self.inputs.iter()
+            .filter_map(|b|{
+                match b {
+                    BindInput::GamepadButton(k) => Some(*k),
+                    _ => None,
+                }
+            })
+            .collect()
     }
 }
 
@@ -176,6 +290,19 @@ pub struct Action {
 }
 
 impl Action {
+    pub fn new(bind: impl Into<Binding>) -> Self {
+        Self {
+            bindings: vec![ bind.into() ]
+        }
+    }
+
+    pub fn with(mut self, bind: impl Into<Binding>) -> Self {
+        self.bindings.push(bind.into());
+        self
+    }
+
+    // fn check_against()
+
     /// Searches all keypress Bindings for those being actively triggered and returns Some(Binding)
     /// of the Binding in question. Should multiple bindings be triggered at once, the one with the
     /// greatest [`Binding::weight`] is returned. Should no bindings be triggered, None is returned.
@@ -190,31 +317,34 @@ impl Action {
         bindings.last().cloned()
     }
 
+    /// Searches all mouse button Bindings for those being actively triggered and returns
+    /// Some(Binding) of the Binding in question. Should multiple bindings be triggered at once, the
+    /// one with the greatest [`Binding::weight`] is returned. Should no bindings be triggered, None
+    /// is returned.
+    fn mouse_button_pressed(&self, buttons: &ButtonInput<MouseButton>) -> Option<Binding> {
+        let mut bindings = self
+            .bindings
+            .iter()
+            .filter(|it| it.mouse_button_pressed(buttons))
+            .cloned()
+            .collect::<Vec<Binding>>();
+        bindings.sort_by(|v1, v2| (v1.weight().partial_cmp(&v2.weight()).unwrap()));
+        bindings.last().cloned()
+    }
+
     /// Searches all gamepad button Bindings for those being actively triggered and returns
     /// Some(Binding) of the Binding in question. Should multiple bindings be triggered at once, the
     /// one with the greatest [`Binding::weight`] is returned. Should no bindings be triggered, None
     /// is returned.
-    fn button_pressed(&self, buttons: &HashMap<GamepadButtonType, f32>) -> Option<(Binding, f32)> {
+    fn button_pressed(&self, buttons: &ButtonInput<GamepadButtonType>) -> Option<Binding> {
         let mut bindings = self
             .bindings
             .iter()
-            .filter(|it| it.button_pressed(buttons))
+            .filter(|it| it.gamepad_button_pressed(buttons))
             .cloned()
             .collect::<Vec<Binding>>();
         bindings.sort_by(|v1, v2| (v1.weight().partial_cmp(&v2.weight()).unwrap()));
-        let binding = bindings.last().cloned();
-        if let Some(binding) = binding {
-            let mut strength = 0.;
-            for (k, v) in buttons.iter() {
-                if binding.gamepad_buttons.contains(k) {
-                    strength += v;
-                }
-            }
-            strength /= binding.gamepad_buttons.len() as f32;
-            Some((binding, strength))
-        } else {
-            None
-        }
+        bindings.last().cloned()
     }
 
     /// Searches all gamepad axis Bindings for those being actively triggered and returns
@@ -225,22 +355,22 @@ impl Action {
         &self,
         directions: &HashMap<GamepadAxisDirection, f32>,
     ) -> Option<(Binding, f32)> {
-        let mut bindings = self
+        let mut axis_bindings = self
             .bindings
             .iter()
             .filter(|it| it.gamepad_axis_changed(directions))
             .cloned()
             .collect::<Vec<Binding>>();
-        bindings.sort_by(|v1, v2| (v1.weight().partial_cmp(&v2.weight()).unwrap()));
-        let binding = bindings.last().cloned();
+        axis_bindings.sort_by(|v1, v2| (v1.weight().partial_cmp(&v2.weight()).unwrap()));
+        let binding = axis_bindings.last().cloned();
         if let Some(binding) = binding {
-            let mut strength = 0.;
+            let mut strength = 0.0;
             for (k, v) in directions.iter() {
-                if binding.gamepad_axis_directions.contains(k) {
+                if binding.contains_axis(*k) {
                     strength += v;
                 }
             }
-            strength /= binding.gamepad_axis_directions.len() as f32;
+            strength /= axis_bindings.len() as f32;
             Some((binding, strength))
         } else {
             None
@@ -253,7 +383,7 @@ impl Action {
 #[derive(Debug, Resource)]
 pub struct InputMap<T> {
     pub(crate) actions: HashMap<T, Action>,
-    pressed_buttons: HashMap<GamepadButtonType, f32>,
+    gamepad_pressed_buttons: ButtonInput<GamepadButtonType>,
     gamepad_axis: HashMap<GamepadAxisDirection, f32>,
     raw_active: Vec<(T, Binding, f32)>,
     active: HashMap<T, f32>,
@@ -267,7 +397,7 @@ impl<T> Default for InputMap<T> {
     fn default() -> Self {
         Self {
             actions: HashMap::new(),
-            pressed_buttons: HashMap::new(),
+            gamepad_pressed_buttons: ButtonInput::default(),
             gamepad_axis: HashMap::new(),
             raw_active: Vec::new(),
             active: HashMap::new(),
@@ -303,26 +433,6 @@ where
         self
     }
 
-    /// Performs a binding as with the [`InputMap::bind`] method, but includes a deadzone for which
-    /// the action much exceed in order to register eg. with analog buttons and axes.
-    pub fn bind_with_deadzone<K: Into<T>, B: Into<Binding>>(
-        &mut self,
-        key: K,
-        binding: B,
-        deadzone: f32,
-    ) -> &mut Self {
-        let key = key.into();
-        if !self.actions.contains_key(&key) {
-            self.add_action(key.clone());
-        }
-        if let Some(actions) = self.actions.get_mut(&key) {
-            let mut binding = binding.into();
-            binding.deadzone = deadzone;
-            actions.bindings.push(binding);
-        }
-        self
-    }
-
     /// Returns whether a given action is currently triggered.
     pub fn active<K: Into<T>>(&self, key: K) -> bool {
         self.active.contains_key(&key.into())
@@ -350,7 +460,7 @@ where
     /// Clears all triggered actions without changing configured bindings.
     pub fn clear(&mut self) {
         self.wants_clear = true;
-        self.pressed_buttons.clear();
+        self.gamepad_pressed_buttons.clear();
         self.gamepad_axis.clear();
         self.raw_active.clear();
         self.active.clear();
@@ -367,6 +477,24 @@ where
         input_map.just_inactive.clear();
     }
 
+    fn handle_input(
+        mut input_map: ResMut<InputMap<T>>,
+        keys: Res<ButtonInput<KeyCode>>,
+        mouse: Res<ButtonInput<MouseButton>>,
+    ) {
+        let mut raw_active = vec![];
+        for (val, bind) in input_map.actions.iter() {
+            for combo in &bind.bindings {
+                if let Some( strength ) = combo.check(&input_map, &keys, &mouse) {
+                    raw_active.push( (val.clone(), combo.clone(), strength) )
+                }
+            }
+        }
+
+        input_map.raw_active = raw_active;
+    }
+
+
     /// System that listens to pressed [`KeyCodes`] to map to the configured actions
     fn key_input(input: Res<ButtonInput<KeyCode>>, mut input_map: ResMut<InputMap<T>>)
     where
@@ -381,6 +509,22 @@ where
             .collect::<Vec<(T, Binding, f32)>>();
         input_map.raw_active.append(&mut raw_active);
     }
+
+    /// System that listens to pressed [`KeyCodes`] to map to the configured actions
+    fn mouse_buttons(input: Res<ButtonInput<MouseButton>>, mut input_map: ResMut<InputMap<T>>)
+    where
+        T: 'static + Debug,
+    {
+        let mut raw_active = input_map
+            .actions
+            .iter()
+            .map(|a| (a.0, a.1.mouse_button_pressed(&input)))
+            .filter(|v| v.1.is_some())
+            .map(|v| (v.0.clone(), v.1.unwrap(), 1.))
+            .collect::<Vec<(T, Binding, f32)>>();
+        input_map.raw_active.append(&mut raw_active);
+    }
+
 
     /// System that listens to [`GamepadEvent`]s to write into the raw inputs
     fn gamepad_state(mut gamepad_events: EventReader<GamepadEvent>, mut input: ResMut<InputMap<T>>)
@@ -400,10 +544,10 @@ where
                     }
                 },
                 GamepadEvent::Button( event ) => {
-                    if event.value > 0.0 {
-                        input.pressed_buttons.insert(event.button_type, event.value);
+                    if event.value > 0.5 {
+                        input.gamepad_pressed_buttons.press(event.button_type);
                     } else {
-                        input.pressed_buttons.remove(&event.button_type);
+                        input.gamepad_pressed_buttons.release(event.button_type);
                     }
                 },
                 GamepadEvent::Axis( event ) => {
@@ -444,11 +588,10 @@ where
         let mut raw_active = input_map
             .actions
             .iter()
-            .map(|(key, act)| (key, act.button_pressed(&input_map.pressed_buttons)))
+            .map(|(key, act)| (key, act.button_pressed(&input_map.gamepad_pressed_buttons)))
             .filter(|(_key, act)| act.is_some())
             .map(|(key, act)| {
-                let (bind, strength) = act.unwrap();
-                (key.clone(), bind, strength)
+                (key.clone(), act.unwrap(), 1.0)
             })
             .collect::<Vec<(T, Binding, f32)>>();
         input_map.raw_active.append(&mut raw_active);
@@ -478,62 +621,54 @@ where
         T: 'static + Debug,
     {
         let mut active_resolve_conflicts = input_map.raw_active.clone();
-        for (outer_action, outer_binding, outer_strength) in &input_map.raw_active {
-            for (inner_action, inner_binding, inner_strength) in &input_map.raw_active {
-                if outer_action == inner_action {
+        
+        for (idx, outer) in input_map.raw_active.iter().enumerate() {
+            for inner in (input_map.raw_active).as_slice()[idx + 1 .. ].iter() {
+                let (_, outer_bind, _) = &outer;
+                let (_, inner_bind, _) = &inner;
+
+                let outer_weight = outer_bind.weight();
+                let inner_weight = inner_bind.weight();
+                
+                if outer_weight == inner_weight {
                     continue;
                 }
-                let weight = if !outer_binding.keys.is_empty() && !inner_binding.keys.is_empty() {
-                    let intersection = outer_binding.keys.intersection(&inner_binding.keys);
-                    intersection.count()
-                } else if !outer_binding.gamepad_buttons.is_empty()
-                    && !inner_binding.gamepad_buttons.is_empty()
-                {
-                    let intersection = outer_binding
-                        .gamepad_buttons
-                        .intersection(&inner_binding.gamepad_buttons);
-                    intersection.count()
-                } else {
-                    0
-                };
-                if weight == outer_binding.weight() {
-                    continue;
-                }
-                if weight != 0 {
-                    let to_remove = if weight < outer_binding.weight() {
-                        (inner_action.clone(), inner_binding.clone(), *inner_strength)
-                    } else {
-                        (outer_action.clone(), outer_binding.clone(), *outer_strength)
-                    };
-                    active_resolve_conflicts.retain(|v| *v != to_remove);
-                }
+                let to_remove = if outer_weight > inner_weight { inner } else { outer };
+
+                active_resolve_conflicts.retain(|v| v != to_remove);
             }
         }
-        let just_active = active_resolve_conflicts
-            .iter()
-            .filter(|v| !input_map.active.contains_key(&v.0))
-            .map(|v| (v.0.clone(), v.1.clone(), v.2))
-            .collect::<Vec<(T, Binding, f32)>>();
-        for v in just_active {
-            if v.1.keys.is_empty() || v.1.keys.iter().any(|v| input.just_pressed(*v)) {
-                input_map.just_active.insert(v.0, v.2);
+        
+        let just_active = active_resolve_conflicts.iter()
+            .filter_map(|(val, bind, strength)| {
+                match input_map.active.contains_key(&val) {
+                    true => None,
+                    false => Some((val, bind, strength))
+                }
+            })
+            .collect::<Vec<_>>();
+        
+        for (val, bind, strength) in just_active {
+            if bind.get_keycodes().is_empty() || bind.key_pressed(&input) {
+                input_map.just_active.insert(val.clone(), *strength);
             }
         }
+        
         let active = active_resolve_conflicts
             .iter()
-            .map(|v| (v.0.clone(), v.2))
+            .map(|(val, _, strength)| (val.clone(), *strength))
             .collect::<Vec<(T, f32)>>();
+
         let prev_active = input_map.active.clone();
-        for k in prev_active.keys() {
-            let binding = active.iter().find(|v| v.0 == *k);
-            if binding.is_none() {
-                input_map.just_inactive.insert(k.clone());
+        for prev in prev_active.keys() {
+            let active_binds = active.iter().find(|(val, _)| *val == *prev );
+            if active_binds.is_none() {
+                input_map.just_inactive.insert(prev.clone());
             }
         }
+
         input_map.active.clear();
-        for v in active {
-            input_map.active.insert(v.0, v.1);
-        }
+        input_map.active.extend( active );
         input_map.raw_active.clear();
     }
 
@@ -585,21 +720,26 @@ where
             // Clear the `just_active` and `just_inactive` maps at the start of every iteration of the
             // application's main loop to ensure that there are no false positives
             .add_systems(PostUpdate, InputMap::<T>::clear_just_active_inactive)
-            // Register keyboard input
-            .add_systems(PreUpdate,
-                (InputMap::<T>::key_input)
-                    .in_set(UpdateSet)
-                    .after(InputSystem)
+            // // Register keyboard, gamepad button, and mouse button input
+            // .add_systems(PreUpdate,
+            //     (InputMap::<T>::key_input, InputMap::<T>::gamepad_state, InputMap::<T>::mouse_buttons)
+            //         .in_set(UpdateSet)
+            //         .after(InputSystem)
+            // )
+            // // Register gamepad inputs
+            // .add_systems(PreUpdate, InputMap::<T>::gamepad_state
+            //         .in_set(UpdateSet).after(InputSystem),
+            // )
+            // // Then map those gamepad inputs to the correct actions
+            // .add_systems(PreUpdate, 
+            //     (InputMap::<T>::gamepad_button_input, InputMap::<T>::gamepad_axis_input)
+            //         .after(UpdateSet).before(ResolveConflictsSet)
+            // )
+            .add_systems(PreUpdate, (InputMap::<T>::gamepad_state, InputMap::<T>::handle_input)
+                .after(InputSystem)
+                .before(ResolveConflictsSet)
             )
-            // Register gamepad inputs
-            .add_systems(PreUpdate, InputMap::<T>::gamepad_state
-                    .in_set(UpdateSet).after(InputSystem),
-            )
-            // Then map those gamepad inputs to the correct actions
-            .add_systems(PreUpdate, 
-                (InputMap::<T>::gamepad_button_input, InputMap::<T>::gamepad_axis_input)
-                    .after(UpdateSet).before(ResolveConflictsSet)
-            )
+
             // Resolve all conflicts based on weight
             .add_systems(PreUpdate, InputMap::<T>::resolve_conflicts
                 .in_set(ResolveConflictsSet)

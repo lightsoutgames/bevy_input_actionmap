@@ -1,6 +1,6 @@
 [package]
 name = "bevy_input_actionmap"
-version = "0.13.0"
+version = "0.13.1"
 authors = ["Nolan Darilek <nolan@thewordnerd.info>"]
 license = "MIT OR Apache-2.0"
 edition = "2021"
