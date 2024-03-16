@@ -29,14 +29,9 @@ pub struct Binding {
 }
 
 impl Binding {
-    pub fn new<B>(inputs: &[ B ]) -> Self
-    where
-        B: Into<BindInput> + Clone
-     {
+    pub fn new(inputs: impl Into<BindInput>) -> Self {
         let mut me = Self::default();
-        for i in inputs.into_iter() {
-            me.inputs.insert( i.clone().into() );
-        }
+        me.inputs.insert( inputs.into() );
         me
     }
 
@@ -61,7 +56,7 @@ impl Binding {
         keys: &ButtonInput<KeyCode>,
         mouse: &ButtonInput<MouseButton>
     ) -> Option<f32>
-        where T: Hash + Eq + Clone + Send + Sync + Debug + 'static 
+        where T: Hash + Eq + Clone + Send
     {
         let (all_true, total_str) = self.inputs
             .iter()
@@ -284,7 +279,7 @@ impl<T> Default for InputMap<T> {
 
 impl<T> InputMap<T>
 where
-    T: Hash + Eq + Clone + Send + Sync + Debug + 'static,
+    T: Hash + Eq + Clone + Send + Sync + 'static,
 {
     /// Adds an instance of the application's action type to the list of actions, but with no bound
     /// inputs.
@@ -342,10 +337,7 @@ where
     }
 
     /// System that clears specifically the maps of just active or just inactive actions
-    fn clear_just_active_inactive(mut input_map: ResMut<InputMap<T>>)
-    where
-        T: 'static + Debug,
-    {
+    fn clear_just_active_inactive(mut input_map: ResMut<InputMap<T>>) {
         input_map.just_active.clear();
         input_map.just_inactive.clear();
     }
@@ -369,10 +361,7 @@ where
 
 
     /// System that listens to [`GamepadEvent`]s to write into the raw inputs
-    fn gamepad_state(mut gamepad_events: EventReader<GamepadEvent>, mut input: ResMut<InputMap<T>>)
-    where
-        T: 'static + Debug,
-    {
+    fn gamepad_state(mut gamepad_events: EventReader<GamepadEvent>, mut input: ResMut<InputMap<T>>) {
         use GamepadAxisDirection as GAD;
         use GamepadAxisType as GAT;
         for event in gamepad_events.read() {
@@ -424,10 +413,7 @@ where
     }
 
     /// System that prunes conflicting actions by prioritizing that with the higher weight.
-    fn resolve_conflicts(mut input_map: ResMut<InputMap<T>>, input: Res<ButtonInput<KeyCode>>)
-    where
-        T: 'static + Debug,
-    {
+    fn resolve_conflicts(mut input_map: ResMut<InputMap<T>>, input: Res<ButtonInput<KeyCode>>) {
         let mut active_resolve_conflicts = input_map.raw_active.clone();
         
         for (idx, outer) in input_map.raw_active.iter().enumerate() {
@@ -482,10 +468,7 @@ where
 
     /// System that assists in clearing the input by modifying the actual [`Input`] resource interal
     /// to Bevy
-    fn clear_wants_clear(mut input_map: ResMut<InputMap<T>>, mut input: ResMut<ButtonInput<KeyCode>>)
-    where
-        T: 'static + Debug,
-    {
+    fn clear_wants_clear(mut input_map: ResMut<InputMap<T>>, mut input: ResMut<ButtonInput<KeyCode>>) {
         if input_map.wants_clear {
             input.clear();
             let mut v = vec![];
@@ -520,7 +503,7 @@ pub struct ResolveConflictsSet;
 impl<T> Plugin for ActionPlugin<'static, T>
 where
     InputMap<T>: Default,
-    T: Hash + Eq + Clone + Send + Sync + Debug + 'static
+    T: Hash + Eq + Clone + Send + Sync + 'static
 {
     fn build(&self, app: &mut App) {
         app
@@ -542,3 +525,13 @@ where
             .add_systems(PostUpdate, InputMap::<T>::clear_wants_clear);
     }
 }
+
+
+
+// this bit tells the compiler to import the code sections of README.md 
+// as this type's documentation.
+//
+// This means running `cargo test` will ensure the example code compiles.
+#[doc = include_str!("../README.md")]
+#[cfg(doctest)]
+struct ReadmeDoctests;
